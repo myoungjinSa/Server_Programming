@@ -1,0 +1,38 @@
+네트 워크 : 연결 -> data 주고 받기 -> 포맷 == 패킷
+
+Line Sharing -> 데이터가 여러개(패킷으로 잘라서 조각조각)가 하나의 선을 이용한다. 
+	       ex>배그 오버워치 데이터가 섞이면 안됨. 패킷으로 구분
+패킷 크기 -> 알수없다
+
+send하고 recv가 1대1이 아니다.
+
+
+
+이벤트가 발생했을때 이벤트의 해당하는 패킷(ex>AttackPacket,MovePacket)만 보내야함
+
+
+P17 
+Comparison 
+오른쪽 코드 단점 : 호환성이 없다.  만약 유니티라면 씨샵이기 때문에 struct 못씀
+	 	cpu,운영체제 등이 다르면 제대로 간다는 보장이 없다.
+
+왼쪽 코드 장점 : 바이너리로 주소로 가는것이기 때문에 호환성이 좋음
+
+
+p18
+위 두 코드의 장단점을 다 취할수 있는 방법
+ OpenSourceProjects (made by Google) 
+ex>Protocol Buffer-> 근데 게임에서 쓰기는 성능이 아쉬움
+ex> Flat Buffers -> 게임에서 쓰기 적절, 그러나 좀 더 어려움
+
+p20
+read()/write() 와 Send()/recv() 의 차이 -> 랜덤액세스 가능 여부
+read,write는 랜덤액세스 가능
+
+Winsock1.0은 리눅스와 거의 1대1 대응 -> 그러나 지금 실정과 맞지않음.
+Winsock2.0은 쌩판 달라서 리눅스와 호환 안됨
+
+-WSAStartup(),WSACleanup() -> 인터넷을 쓰겠다라는 의미 -> 윈도우는 인터넷이 표준이 아니라서
+
+
+
