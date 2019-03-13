@@ -1,7 +1,6 @@
 #include "ServerFramework.h"
 
 
-
 CServerFramework::CServerFramework()
 	:addrlen(0),
 	 m_AcceptRequest(0)
@@ -35,11 +34,16 @@ CServerFramework::CServerFramework()
 	retval = ::bind(m_listenSocket, (SOCKADDR*)&server_addr, sizeof(server_addr));
 	if(retval == SOCKET_ERROR)
 	{
-		err_quit("listen()");
-		return;
+		err_quit("bind()");
 	}
-
+	retval = listen(m_listenSocket, MAX_CLIENT_COUNT);
+	if (retval == SOCKET_ERROR)
+	{
+		err_quit("listen()");
+	}
 	cout << "대기 소켓 생성 완료" << endl;
+
+
 
 	m_vClientSocket.reserve(MAX_CLIENT_COUNT);
 	
@@ -115,6 +119,7 @@ int CServerFramework::recvn(SOCKET s,char* buf,int len,int flags)
 
 SOCKET& CServerFramework::AcceptClient()
 {
+
 	addrlen = sizeof(m_clientAddr);
 	m_clientSocket = accept(m_listenSocket, (SOCKADDR*)&m_clientAddr, &addrlen);
 	if(m_clientSocket == INVALID_SOCKET)
@@ -124,23 +129,26 @@ SOCKET& CServerFramework::AcceptClient()
 
 	cout << endl << "[ TCP 서버 ] 클라이언트 접속 - IP : " << inet_ntoa(m_clientAddr.sin_addr)
 		<< ", 포트 번호 : " << ntohs(m_clientAddr.sin_port) << endl;
-
+	
 
 	if(m_vClientSocket.size() == 0 )
 	{
-		m_vClientSocket.emplace_back(m_clientSocket, PLAYER_1);
+		m_vClientSocket.emplace_back(m_clientSocket, PLAYER_1,m_fWidthStep*4.0f,m_fHeightStep*4.0f);
+		m_GameTimer.Start();
 	}
 
 	return m_clientSocket;
 }
+
 
 void CServerFramework::RecvPacket()
 {
 	int retval = 0;
 	size_t packetSize = 0;
 
-	while(true)
-	{
+	
+	while (true) {
+		m_GameTimer.Tick(60.0f);
 		CS_RUN cs_runPacket;
 		retval = recvn(m_vClientSocket[PLAYER_1].clientSocket, (char*)&cs_runPacket, sizeof(cs_runPacket), 0);
 		if (retval == SOCKET_ERROR)
@@ -148,29 +156,75 @@ void CServerFramework::RecvPacket()
 			err_display("recvn( )");
 			return;
 		}
+	
+		
+		Update(cs_runPacket);
+		SendPacket();
 	}
+	
+
 }
 
-void CServerFramework::ProcessKeyInput(byte& keyInput)
+void CServerFramework::SendPacket()
 {
+	int retval = 0;
+	size_t packetSize = 0;
+
+
+	SC_RUN sc_runPacket;
+	sc_runPacket.posX = m_vClientSocket[PLAYER_1].pos.x;
+	sc_runPacket.posY = m_vClientSocket[PLAYER_1].pos.y;
+	
+	retval = send(m_vClientSocket[PLAYER_1].clientSocket, (char*)&sc_runPacket, sizeof(sc_runPacket),0);
+	if(retval == SOCKET_ERROR)
+	{
+		err_display("send()");
+		return;
+	}
+
+
+}
+
+void CServerFramework::ProcessKeyInput(const byte& keyInput)
+{
+	
 	switch(keyInput)
 	{
-	case VK_UP:
+	case KEY_IDLE:
 
+		//cout << "IDLE" << endl;
 		break;
-	case VK_DOWN:
+	case KEY_RIGHT:
+		m_vClientSocket[PLAYER_1].pos.x += m_fWidthStep;
+		//cout << "RIGHT" << endl;
 		break;
-	case VK_RIGHT:
+	case KEY_LEFT:
+		m_vClientSocket[PLAYER_1].pos.x -= m_fWidthStep;
+		//cout << "LEFT" << endl;
 		break;
-	case VK_LEFT:
+	case KEY_UP:
+		m_vClientSocket[PLAYER_1].pos.y -= m_fHeightStep;
+		//cout << "UP" << endl;
+		break;
+	case KEY_DOWN:
+		m_vClientSocket[PLAYER_1].pos.y += m_fHeightStep;
+		//cout << "DOWN" << endl;
 		break;
 	default:
 		break;
 	}
 }
 
+void CServerFramework::Update(const CS_RUN& cs_runPacket)
+{
+	
+	ProcessKeyInput(cs_runPacket.key);
+
+}
+
 void CServerFramework::Destroy()
 {
+	m_GameTimer.Stop();
 	for(auto iter = m_vClientSocket.begin();iter != m_vClientSocket.end();++iter)
 	{
 		closesocket(iter->clientSocket);

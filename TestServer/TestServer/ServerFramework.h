@@ -1,5 +1,7 @@
 #pragma once
 #include "global.h"
+#include "GameTimer\GameTimer.h"
+
 
 class CServerFramework
 {
@@ -14,21 +16,29 @@ public:
 
 	//static DWORD WINAPI	RecvThread(LPVOID);
 
-	void ProcessKeyInput(byte& keyInput);
+	void ProcessKeyInput(const byte& keyInput);
 
-	void Update();
-	void SendPacket(SOCKET&);
+
+	void Update(const CS_RUN& cs_runPacket);
+	void SendPacket();
 	void RecvPacket();
 	int recvn(SOCKET, char*, int, int);
 
 
 	void Destroy();
 
+	//LRESULT CALLBACK OnProcessingWindowMessage(HWND hWnd, UINT nMessageID, WPARAM wParam, LPARAM lParam);
+
 
 private:
 	const u_short	serverPort{ 9000 };
 
+	const int m_frameWidth = 1200;
+	const int m_frameHeight = 800;
+	const int m_fWidthStep		= m_frameWidth  / 8;
+	const int m_fHeightStep		= m_frameHeight / 8;
 
+	
 	//대기 소켓
 	SOCKET			m_listenSocket;
 
@@ -42,5 +52,5 @@ private:
 	static HANDLE hThread[2];
 
 
-
+	CGameTimer					m_GameTimer;
 };

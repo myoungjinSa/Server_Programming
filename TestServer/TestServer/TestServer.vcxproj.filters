@@ -13,6 +13,9 @@
       <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
       <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
+    <Filter Include="GameTimer">
+      <UniqueIdentifier>{3a15b0f4-f1f3-4361-a2f0-8ac9c30e34dc}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="global.h">
@@ -21,6 +24,9 @@
     <ClInclude Include="ServerFramework.h">
       <Filter>ServerFramework</Filter>
     </ClInclude>
+    <ClInclude Include="GameTimer\GameTimer.h">
+      <Filter>GameTimer</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ServerFramework.cpp">
@@ -28,6 +34,9 @@
     </ClCompile>
     <ClCompile Include="main.cpp">
       <Filter>헤더 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="GameTimer\GameTimer.cpp">
+      <Filter>GameTimer</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

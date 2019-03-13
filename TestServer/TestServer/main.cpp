@@ -9,6 +9,8 @@ int main()
 	while(true)
 	{
 		Server.AcceptClient();
+		Server.RecvPacket();
+		
 	}
 
 }
