@@ -1,0 +1,130 @@
+-IOCP 서버 FrameWork => 멀티 스레드 => IOCP 실습
+
+- Worker Thread 생성 == Thread 들을 IOCP thread-pool 에 등록
+
+-Accept thread
+1. 무한 루프를 돌면서 
+ * Accept() 호출
+ * 새 클라이언트가 접속했으면 클라이언트 정보 구조체를 만든다.
+ * IOCP 에 소켓을 등록한다. 
+	-Send/Recv 가 IOCP를 통해 수행됨.
+* WSARecv()를 호출한다. 
+	-Overlapped I/O recv 상태를 항상 유지해야 한다.
+
+-서버는 클라이언트의 정보를 갖고있어야함.
+- ex> 클라이언트 객체 
+ - 서버는 클라이언트의 정보를 갖고있는 객체가 필요
+ 
+* GetQueuedCompletionStatus -> completion_key를 알수 있다
+
+*Overlapped 구조체
+
+-한 클라이언트에대한 Recv호출은 한번만 이뤄져야하며
+ Send 호출은 동시에 여러개가 될 수 있다.
+
+-클라이언트 하나당 Overlapped 구조체는 recv호출용 하나, send호출용은 알수없다.
+
+-send할때 무조건 send할수있어야하기 때문에 overlapped 구조체를 new를 하고 
+ Send를 완료하면 delete ovelapped 구조체를 하면된다.
+
+-new ,delete는 오버헤드가 크므로 공유 pool을 만들어서 관리할 필요가 있다.
+ 
+-ovelapped 구조체를 만들때 처럼 버퍼도 만들어서 사용한다.
+
+-overlapped 구조체와 버퍼를 묶어서 new,delete
+ 
+
+
+*Overlapped I/O 구조체 자체는 쓸만한 정보가 없다.
+
+-GetQueuedCompletionState() 함수는 send인지 recv인지 알수 없다.
+- 이 정보를 프로그래머가 넣어줘야한다.
+
+
+*Overlapped I/O pointer를 확장
+ - overlapped I/O 구조체 자체는 쓸만한 정보가 없다.
+ - 따라서 정보들을 추가할 필요가 있음
+ 	1.뒤에 추가하면 IOCP는 있는지 없는지도 모르고 
+	  에러도 나지 않음 
+	2.그렇기 때문에 OVERLAPPED 구조체 아래에 필요한 버퍼나 
+		SEND/RECV여부를 저장한다.
+
+*Worker Thread 
+	-무한 루프
+	  + GetQueuedCompletionStatus 를 부른다.
+	  + 에러 처리/ 접속 종료 처리를 한다.
+	  + Send/Recv 처리를 한다.	-> overlapped 구조체 아래에 정보 아래에 부착되어있을테니
+	  + 
+
+
+
+*main 은 
+{
+	hIocp = CreateIocp()
+	Workerthread_시작();
+	Acceptthread_시작();
+}
+
+
+AcceptThread()
+{
+	while(1)
+	{
+		socket = accept();
+		CreateIOCP(hIocp,socket);
+		WSARecv(socket);
+	}
+}
+
+
+WorkerThread()
+{
+	while(1)
+	{
+		GetQueuedCompletionStatus();
+		if(recv) -> 패킷 통신 패킷 실행
+		{
+			 ProcessPacket(clientInfo);
+			WSARecv();
+				*데이터가 잘려서 들어올수 있기 때문에 
+				 그전 데이터를 다른데에 저장해놨어야한다. 
+				그 데이터를 보고 잘라진 데이터와 합쳐서 처리해야함.
+
+		
+		}else
+		{
+			delete 
+		}
+	}	
+}
+	
+
+*버퍼는 굉장히 큰 사이즈를 하는게 좋다,
+- GetqueuedCompletionStatus 함수는 커널을 왔다갔다 하는것이기 때문에
+  오버헤드가 크다. 그렇기때문에 클라이언트가 보낸 대략의 데이터를 한번에 호출로
+ 처리하는게 좋다. 
+
+*send가 동시 다발적으로 호출된다고 해도
+ send 가 한번 보낸 패킷 A 사이에 B패킷이 섞이거나 그러진 않는다.
+
+*내부버퍼가 차서 send가 중간에 짤렸다면?
+-짤리는 이유: 커널 버퍼가 꽉차서	
+- 다시 보내기 전 다른 쓰레드의 send 패킷이 끼는 문제가 발생할  수있다.
+	 -해결책: 없다. 서버 크래쉬- 리부팅 밖에 없다. 소켓을 끊어 버림
+
+
+*기본 패킷 포맷
+	-길이(byte) + 
+
+
+
+//이 구조체는 RECV할때만 사용함,   	 
+class ClientInfo
+{
+	unsigned char m_recv_packet_buf[MAX_PACKET_SIZE]; -> 패킷이 잘려도 앞부분만 있지 뒷부분이 들어올리는 없다.
+
+}
+
+
+//SC_POSITION 패킷이 통신의 90퍼센트를 차지하므로
+최대한 줄여주는게 좋다.

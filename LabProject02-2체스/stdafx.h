@@ -22,6 +22,7 @@
 
 // C의 런타임 헤더 파일입니다.
 #include <stdlib.h>
+#include <iostream>
 #include <malloc.h>
 #include <memory.h>
 #include <tchar.h>

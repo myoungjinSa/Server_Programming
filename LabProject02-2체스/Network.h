@@ -14,7 +14,28 @@
 #define KEY_UP		0x03
 #define KEY_DOWN	0x04
 
+
+#define MAXCLIENT  10
 #pragma pack(1)
+
+typedef struct POSITION
+{
+	POSITION(){}
+	POSITION(float x,float y)
+	: x(x),y(y)
+	{}
+	float x;
+	float y;
+}POS;
+
+struct PlayerInfo
+{
+	PlayerInfo() {};
+	PlayerInfo(byte p,float x,float y) : player_id(p),position(x,y){}
+	byte  player_id;				//플레이어 정보
+	POS position;
+	
+};
 
 struct CS_RUN
 {
@@ -24,20 +45,32 @@ struct CS_RUN
 	{}
 	byte key;
 	byte player;
+	
 
 };
 
 struct SC_RUN
 {
-	SC_RUN(){}
-	SC_RUN(float x,float y) :posX(x),posY(y){}
-	float posX;
-	float posY;
-
+	//SC_RUN(){}
+	//SC_RUN(PlayerInfo p):player(p) {}
+	PlayerInfo player[MAXCLIENT];
+	byte playerCount;
+	byte index;
+	
 };
 
 #pragma pack()
 
+struct SOCKETINFO
+{
+	WSAOVERLAPPED overlapped;
+	WSABUF dataBuffer;
+	int receiveBytes;
+	int sendBytes;
+
+	CS_RUN cs_run;
+	SC_RUN sc_run;
+};
 
 class CNetwork 
 {
@@ -60,15 +93,22 @@ public:
 
 	void SetCSRunPacket(CS_RUN& cs_packet) { m_csRunPacket = cs_packet; }
 
+	int GetClientNum() { return m_clientCount; }
+
+	enum PLAYER_INFO {PLAYER_1,PLAYER_2,PLAYER_3,PLAYER_4,PLAYER_5,PLAYER_6};
+
+	std::vector<PlayerInfo> m_vPlayer;
 private:
 	SOCKET m_socket;
 	SOCKADDR_IN m_serverAddr;
 
 	const std::string SERVERIP = "127.0.0.1";
-	const u_short SERVERPORT = 9000;
+	const u_short SERVERPORT = 3500;
 
 	CS_RUN m_csRunPacket;
 	SC_RUN m_scRunPacket;
 
-
+	int m_clientCount{ 0 };
+	bool m_bSendPacket{ false };
+	
 };

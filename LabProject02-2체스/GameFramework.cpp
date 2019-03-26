@@ -424,8 +424,10 @@ void CGameFramework::OnProcessingMouseMessage(HWND hWnd, UINT nMessageID, WPARAM
 
 void CGameFramework::OnProcessingKeyboardMessage(HWND hWnd, UINT nMessageID, WPARAM wParam, LPARAM lParam)
 {
+
 	switch (nMessageID)
 	{
+
         case WM_KEYUP:
 			switch (wParam) 
             {
@@ -434,10 +436,44 @@ void CGameFramework::OnProcessingKeyboardMessage(HWND hWnd, UINT nMessageID, WPA
                     break;
                 case VK_RETURN:
                     break;
+				case VK_LEFT:
+					if (m_pNetwork)
+					{
+						CS_RUN cs_runPacket = m_pNetwork->getCSRunPacket();
+						cs_runPacket.key = KEY_LEFT;
+						m_pNetwork->SetCSRunPacket(cs_runPacket);
+					}
+					break;
+				case VK_RIGHT:
+					if (m_pNetwork)
+					{
+						CS_RUN cs_runPacket = m_pNetwork->getCSRunPacket();
+						cs_runPacket.key = KEY_RIGHT;
+						m_pNetwork->SetCSRunPacket(cs_runPacket);
+					}
+					break;
+				case VK_UP:
+					if (m_pNetwork)
+					{
+						CS_RUN cs_runPacket = m_pNetwork->getCSRunPacket();
+						cs_runPacket.key = KEY_UP;
+						m_pNetwork->SetCSRunPacket(cs_runPacket);
+					}
+					break;
+				case VK_DOWN:
+					if (m_pNetwork)
+					{
+						CS_RUN cs_runPacket = m_pNetwork->getCSRunPacket();
+						cs_runPacket.key = KEY_DOWN;
+						m_pNetwork->SetCSRunPacket(cs_runPacket);
+					}
+					break;
+
 				case VK_F9:
 					ChangeSwapChainState();
 					break;
 				default:
+					
 					break;
 			} 
 			break;
@@ -452,10 +488,17 @@ LRESULT CALLBACK CGameFramework::OnProcessingWindowMessage(HWND hWnd, UINT nMess
 	{
 		case WM_ACTIVATE:
 		{
-			if (LOWORD(wParam) == WA_INACTIVE)
+			if (LOWORD(wParam) == WA_INACTIVE) {
 				m_GameTimer.Stop();
-			else
+			}
+			else if(LOWORD(wParam) ==WA_CLICKACTIVE)
+			{
 				m_GameTimer.Start();
+				
+			}
+			else{
+				m_GameTimer.Start();
+			}
 			break;
 		}
 		case WM_SIZE:
@@ -599,34 +642,33 @@ void CGameFramework::ReleaseObjects()
 
 void CGameFramework::ProcessInput()
 {
-
-	if (m_pNetwork) {
-		CS_RUN cs_runPacket = m_pNetwork->getCSRunPacket();
-		
-		cs_runPacket.key = KEY_IDLE;
-	
-		if(GetAsyncKeyState(VK_UP) & 0x0001)
-		{
-			cs_runPacket.key = KEY_UP;
-			m_pNetwork->SetCSRunPacket(cs_runPacket);
-			//cs_runPacket.player
-		}
-		if(GetAsyncKeyState(VK_DOWN) & 0x0001)
-		{
-			cs_runPacket.key = KEY_DOWN;
-			m_pNetwork->SetCSRunPacket(cs_runPacket);
-		}
-		if(GetAsyncKeyState(VK_RIGHT) & 0x0001)
-		{
-			cs_runPacket.key = KEY_RIGHT;
-			m_pNetwork->SetCSRunPacket(cs_runPacket);
-		}
-		if(GetAsyncKeyState(VK_LEFT) & 0x0001)
-		{
-			cs_runPacket.key = KEY_LEFT;
-			m_pNetwork->SetCSRunPacket(cs_runPacket);
-		}
-	}
+	//if (m_pNetwork) {
+	//	CS_RUN cs_runPacket = m_pNetwork->getCSRunPacket();
+	//	
+	//	cs_runPacket.key = KEY_IDLE;
+	//
+	//	if(GetAsyncKeyState(VK_UP) & 0x0001)
+	//	{
+	//		cs_runPacket.key = KEY_UP;
+	//		m_pNetwork->SetCSRunPacket(cs_runPacket);
+	//		//cs_runPacket.player
+	//	}
+	//	if(GetAsyncKeyState(VK_DOWN) & 0x0001)
+	//	{
+	//		cs_runPacket.key = KEY_DOWN;
+	//		m_pNetwork->SetCSRunPacket(cs_runPacket);
+	//	}
+	//	if(GetAsyncKeyState(VK_RIGHT) & 0x0001)
+	//	{
+	//		cs_runPacket.key = KEY_RIGHT;
+	//		m_pNetwork->SetCSRunPacket(cs_runPacket);
+	//	}
+	//	if(GetAsyncKeyState(VK_LEFT) & 0x0001)
+	//	{
+	//		cs_runPacket.key = KEY_LEFT;
+	//		m_pNetwork->SetCSRunPacket(cs_runPacket);
+	//	}
+	//}
 }
 void CGameFramework::CommunicateServer()
 {
@@ -684,7 +726,7 @@ void CGameFramework::FrameAdvance()
 { 
 	m_GameTimer.Tick(60.0f);
 
-	ProcessInput();
+	//ProcessInput();
 
 	CommunicateServer();
     //AnimateObjects();
@@ -751,10 +793,22 @@ void CGameFramework::FrameAdvance()
 	DrawChessBoard(szRenderTarget,Point1,Point2,m_fHeightStep,m_fWidthStep);
 	if (m_pNetwork) {
 		const SC_RUN& sc_runPacket = m_pNetwork->getSCRunPacket();
-		m_offset.x = sc_runPacket.posX;
-		m_offset.y = sc_runPacket.posY;
-		m_pd2dDeviceContext->DrawImage(m_pd2dfxBitmapSource, &m_offset);
+		
+		for(int i=0;i<m_pNetwork->GetClientNum();++i)
+		{
+			m_offset.x = sc_runPacket.player[i].position.x;
+			m_offset.y = sc_runPacket.player[i].position.y;
+
+			m_pd2dDeviceContext->DrawImage(m_pd2dfxBitmapSource, &m_offset);
+		}
+		
+
+		
+		
+
 	}
+
+	//std::cout << m_pNetwork->GetClientNum()<<"\n";
 	m_pd2dDeviceContext->EndDraw();
 
 	m_pd3d11On12Device->ReleaseWrappedResources(&m_ppd3d11WrappedBackBuffers[m_nSwapChainBufferIndex], 1);

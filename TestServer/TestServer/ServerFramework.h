@@ -31,7 +31,7 @@ public:
 
 
 private:
-	const u_short	serverPort{ 9000 };
+	const u_short	serverPort{ 3500 };
 
 	const int m_frameWidth = 1200;
 	const int m_frameHeight = 800;

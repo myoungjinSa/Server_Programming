@@ -1,0 +1,51 @@
+-IOCP : 고성능 다중 접속 (스레드를 쓰기 때문에 빠르다) <-> 비동기 I/O callback 
+
+-IOCP: 1.싱글스레드로 동작 시키면 OVERLAPPED 와 성능 차이 없음
+        2.싱글스레드로 동작하면 CALLBACK함수가 계속 쌓이기때문에
+        3. 리시브버퍼가 계속 쌓이면 커널 버퍼로 넘어가고 그것도 넘치면 프로그램 죽음
+        4.놀고 있는 스레드를 꺼내서 콜백함수를 처리함. 
+        5.코어 4개 짜리에서는 최대 4배 빨라질수 있는거. -> 스레드 10개여도 4배 빨라짐
+        6. 스레드 풀은 코어 개수 만큼만 만들어야한다.
+        7. iocp에 있는 이벤트 큐에다가 소켓자체를 등록한다.
+        8.iocp마다  threadpool과 eventQueue를 갖고있다
+        9. CreateIoCompletionPort(Socket,hIOCP,key,0)  -> 소켓을 IOCP랑 연결시킨다. -> 콜백함수로 동작하지 않는다.
+						-> key는 소켓의 이름,인덱스 -> key를가지고 엑세스함
+						->IOCP에는 소켓 핸들뿐 아니라 파일 핸들도 있을수 있기 때문에 KEY가 필요함
+       10. 서버 프로그램마다 IOCP커널객체는 딱 하나이다. 
+       11스레드는 프로그래머가 만들어서 IOCP 스레드풀에 넣어줘야 함.
+       12. GetQueuedCompletionStatus(hIocp,this_thread) -> 실행하고있는 스레드 자기 자신을 IOCP 스레드 풀에 등록되서 여기서 멈춰서 대기상태가 됨.
+       13. OVERLAPPEDIO의 SEND,RECV와 동일하다. -> 단 멀티스레드 CALLBACK
+       14. CALLBACK함수 등록이 없다. 
+       15. GetQueuedCompletionStatus 이 함수가 callback함수이다. -> 즉 IOCPAddThreadPool, ExecuteCallback 기능 함
+       16. GetQueuedCompletionStatus-> Send에서 보낸건지 recv에서 보낸건지 알 수 없다.  -> send,recv정보를 LPOVERLAPPED구조체에 실어서 보내줘야함.
+
+
+-PostQueueCompletionStauts -> GetQueueCompletionStatus의 반대
+			->패킷 주고 받는거랑 아무런상관 없음
+			->서버 죽이는 용도로 딱
+			-> 별로 쓸일 없음
+ 			
+
+
+NumberOfConcurrentThreads -> 스레드 풀에 여러개 있는중에 그중에 동시에 최대 몇개 꺼낼것이냐.
+                                        -> 0 넣어주면 컴퓨터 하드웨어의 코어의 개수만큼 사용해준다.
+			  -> 다른 코어는 npc나 db로 cpu를 100퍼센트 사용해야한다면 4코어일경우3을 써줘야함
+
+-IOCP가 어려운 이유
+1. 엉뚱한 API -> 이름이 근본없다.
+	     ->  파라미터가 근본없다.
+2. 멀티 쓰레드 -> 
+	    
+3. 너무 부족한 API 
+
+
+
+-RIO  -> 2014년 이후 이것이 IOCP보다 더 빠르다. 
+        -> 단점: LOAD밸런싱이 까다로운 문제가 있음.
+
+
+
+
+
+
+

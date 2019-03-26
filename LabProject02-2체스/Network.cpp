@@ -7,8 +7,7 @@ using namespace std;
 CNetwork::CNetwork()
 	:m_socket(0),
 	m_serverAddr(),
-	m_csRunPacket(0,0),
-	m_scRunPacket(0.0f,0.0f)
+	m_csRunPacket(0,0)
 {
 
 }
@@ -95,19 +94,33 @@ void CNetwork::Initialize()
 	}
 
 	//socket
-	m_socket = socket(AF_INET, SOCK_STREAM, 0);
+	m_socket = WSASocket(AF_INET, SOCK_STREAM, 0,NULL,0,WSA_FLAG_OVERLAPPED);
 	if (m_socket == INVALID_SOCKET)
 		err_quit("socket()");
 
+	std::string s;
+	cout << "서버 IP주소를 입력해주세요(127.0.0.1)" << "\n";
+	cin >> s;
+
 	//connect
-	ZeroMemory(&m_serverAddr, sizeof(m_serverAddr));
+	memset(&m_serverAddr,0, sizeof(m_serverAddr));
 	m_serverAddr.sin_family = AF_INET;
-	m_serverAddr.sin_addr.s_addr = inet_addr(SERVERIP.c_str());
 	m_serverAddr.sin_port = htons(SERVERPORT);
+	m_serverAddr.sin_addr.s_addr = inet_addr(s.c_str());
 
 	retval = connect(m_socket, (SOCKADDR*)&m_serverAddr, sizeof(m_serverAddr));
-	if (retval == SOCKET_ERROR)
+	if (retval == SOCKET_ERROR) {
+		
+		closesocket(m_socket);
+
+		WSACleanup();
 		err_quit("connect()");
+		return ;
+	}
+	else
+	{
+		
+	}
 
 	
 }
@@ -123,14 +136,25 @@ void CNetwork::SendPacket()
 {
 	int retval = 0;
 
+	SOCKETINFO* socketInfo;
 
-	retval = send(m_socket, (char*)&m_csRunPacket, sizeof(m_csRunPacket),0);
-	if(retval == SOCKET_ERROR)
+	socketInfo = (struct SOCKETINFO*)malloc(sizeof(struct SOCKETINFO));
+	memset((void*)socketInfo, 0x00, sizeof(struct SOCKETINFO));
+	socketInfo->dataBuffer.len = sizeof(CS_RUN);
+	socketInfo->dataBuffer.buf = (char*)&m_csRunPacket.key;
+
+	
+	retval = send(m_socket, socketInfo->dataBuffer.buf, socketInfo->dataBuffer.len, 0);
+
+	if (retval == SOCKET_ERROR)
 	{
 		err_display("send()");
 		return;
 	}
 	m_csRunPacket.key = KEY_IDLE;
+		
+	
+	
 	
 }
 
@@ -138,14 +162,18 @@ void CNetwork::RecvPacket()
 {
 	int retval = 0;
 
-
-	retval = recvn((char*)&m_scRunPacket, sizeof(m_scRunPacket),0);
+	
+	retval = recvn((char*)&m_scRunPacket.player, sizeof(SC_RUN), 0);
 	if (retval == SOCKET_ERROR)
 	{
 		err_display("recvn( )");
 		return;
 	}
+	
+	m_csRunPacket.player = m_scRunPacket.index;
+	
+	m_clientCount = (int)m_scRunPacket.playerCount;
 
-
+	//cout <<"클라이언트 접속 수: "<<m_clientCount << endl;
 
 }
