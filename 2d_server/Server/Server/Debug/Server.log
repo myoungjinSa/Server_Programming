@@ -1,0 +1,4 @@
+﻿  server_main.cpp
+d:\server\server_programming\2d_server\server\server\server_main.cpp(451): warning C4244: '인수': 'ULONG'에서 'char'(으)로 변환하면서 데이터가 손실될 수 있습니다.
+d:\server\server_programming\2d_server\server\server\server_main.cpp(468): warning C4244: '인수': 'ULONG'에서 'char'(으)로 변환하면서 데이터가 손실될 수 있습니다.
+  Server.vcxproj -> D:\Server\Server_Programming\2d_server\Server\Debug\Server.exe
