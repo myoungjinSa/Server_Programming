@@ -116,9 +116,11 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Protocol.h" />
+    <ClInclude Include="TestServer.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="server_main.cpp" />
+    <ClCompile Include="TestServer.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

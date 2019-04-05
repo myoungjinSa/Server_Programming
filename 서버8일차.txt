@@ -1,0 +1,61 @@
+서버는 릴리즈 모드로 돌린다.
+
+디버그에서 잘 돌아가던게 릴리즈 모드에서 돌아가면 잘 안되는 이유가 있다.
+
+원래 c언어는 멀티쓰레드 언어가 아니다. 
+
+register 키워드 -> 이 변수를 메모리에서 읽고 쓰지 말고 레지스터에 값을 읽어라
+
+volatile 키워드 -> 이 변수를 반드시 메모리에서 읽고 써라. 변수를 레지스터에 할당하지 않는다.
+
+volatile 원래 용도 -> memory mapped I/O 에 쓰던거
+
+-volatile int *a ; -> a가 가리키고있는 int 변수가 volatile이다.
+
+*a = 1; //순서를 지킴
+a = b; //순서를 지키지 않음.
+
+-int *volatile a;  -> a포인터가 volatile이다.
+
+*a = 1 // 순서를 지키지 않음
+a = b //순서를 지킴
+
+
+
+*스레드 2개의 lock의 구현은 피터슨 알고리즘 
+- 완벽하게 동작을 함
+
+
+
+*스레드 3개 이상 이면 데커 알고리즘이나 베이커스 알고리즘을 사용해야함
+
+*피터슨 알고리즘의 오류 원인 
+- 인텔 cpu가 명령어를 제대로 실행하지 않기 때문에 (out of order excution / dynamic excution) + write buffer
+
+- 변수에 값을 써도 바로 메모리에 넣는게 아니고 write buffer 에 넣어놨다가 메모리가 여유있을때 넣는다.
+ 다른 스레드가 메모리에 넣지도 않은 상태에서 실행하게 되면 오류 발생하는것
+
+- cpu는 프로그램을 순차적으로 실행하지 않는다.
+
+-싱글 스레드에서는 절대로 out of order excution을 들키지 않는다.  
+
+- int a;
+ int b;
+
+a =1 ;
+b =a;  -> internal forwarding 을 함 -> b=a를 실행하기 전에 write buffer에 a에 데이터를 아직 메모리에 안쓴게 있나 확인후 
+				       write buffer의 내용을 바로 b에 쓴다.
+
+
+-out of order excution을 하는 이유 -> 성능을 위해서 (클럭 속도 이상의 성능향상이 된다.)
+
+*out of order excution을 잠시 끄는 명령어 
+인텔 x86 버전 _asm mfence -> 앞에 명령어들이 다 실행될 때 까지 기다렸다가 아래 명령어들을 실행해라.
+ARM 	      _asm dmb;
+
+
+*메모리 일관성 해결책 -> m_fence를 잘 사용하라 -> 모든 경우의 수를 다 따지고 증명해라
+
+
+
+

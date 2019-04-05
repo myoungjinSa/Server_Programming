@@ -3,6 +3,8 @@
 //C++11에서는 CONSTEXPR 권장
 //constexpr int MAX_USER = 10;
 
+
+
 #define MAX_USER			10
 #define WORLD_WIDTH			8
 #define WORLD_HEIGHT		8
