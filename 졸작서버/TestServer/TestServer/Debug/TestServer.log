@@ -1,0 +1,9 @@
+﻿  Animation.cpp
+  GameTimer.cpp
+  ServerMain.cpp
+  Terrain.cpp
+  TestServer.cpp
+d:\icebomb_server\졸작서버\testserver\testserver\testserver.cpp(705): warning C4244: '인수': 'ULONG'에서 'char'(으)로 변환하면서 데이터가 손실될 수 있습니다.
+d:\icebomb_server\졸작서버\testserver\testserver\testserver.cpp(722): warning C4244: '인수': 'ULONG'에서 'char'(으)로 변환하면서 데이터가 손실될 수 있습니다.
+  코드를 생성하고 있습니다...
+  TestServer.vcxproj -> D:\ICEBOMB_SERVER\졸작서버\TestServer\Debug\TestServer.exe

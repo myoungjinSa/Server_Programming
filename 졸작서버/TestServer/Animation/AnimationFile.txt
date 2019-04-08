@@ -1,0 +1,13 @@
+12
+0 Idle 4.541668
+1 Jump 1.208334
+2 RunFast 0.7333333
+3 RunBackWard 0.5
+4 ATK3 1
+5 Digging 3.033334
+6 Die2 1.208333
+7 RaiseHand 2.066667
+8 Ice 2.5
+9 Victory 0.7916666
+10 Aert 0.9583333
+11 Slide 4.133334
