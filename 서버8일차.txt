@@ -42,6 +42,20 @@ a = b //순서를 지킴
 - int a;
  int b;
 
+
+
+*Lock이 없는 멀티스레드 시에 문제
+1컴파일러 문제: 릴리즈시 메모리 접근을 건너뛰는 현상 (volatile로 막을수있다) 
+2cpu문제 : 1.out- of order-execution
+	 2. write buffer;
+	
+3캐시 문제 : 1.3.(캐시에 문제)초기값(0000) -> 중간값 (0001)-> 최종값(0101)  -> 중간값이 생기는 이유는 모든 메모리 read /write는 캐시에 올려놓는거
+						    메모리에서 캐시에 올려놓을때 바이트 단위가 아니라 캐시 라인단위로 올려놓는다.
+							   캐시라인: 64바이트 마다 캐시 태그가 붙음
+							   데이터가 캐시라인과 캐시라인 사이에 걸쳐 있으면 발생한다.:						
+4.ABA문제:
+
+
 a =1 ;
 b =a;  -> internal forwarding 을 함 -> b=a를 실행하기 전에 write buffer에 a에 데이터를 아직 메모리에 안쓴게 있나 확인후 
 				       write buffer의 내용을 바로 b에 쓴다.
@@ -55,6 +69,45 @@ ARM 	      _asm dmb;
 
 
 *메모리 일관성 해결책 -> m_fence를 잘 사용하라 -> 모든 경우의 수를 다 따지고 증명해라
+
+m_fence 대신에 아래 것을 쓰자
+std::atomic_thread_fencd(std::memory order seq cst);
+
+
+
+*포인터가 아닌 일반 변수는 컴파일러가 알아서  캐시라인 바운더리에 안 걸치게 잘 해준다.(중간값이 안생기게)
+*멀티스레드 할때 포인터의 주소가 4의 배수인가 아닌가를 체크를 해야되고 아닐경우 4의 배수로 만들어줘야한다.
+*#pragma pack을 조심하라
+
+*x86은 ARMCPU보다는 메모리 일관성을 그나마 잘 지켜준다.
+
+
+*atomic_int 는 다른 쓰레드에서 접근 못하게 해줌 
+
+*sum+= 2; 와 
+ sum = sum + 2;는다르다
+
+*sum +=2 ==> sum.add(2)
+* sum = sum + 2 => sum.write(sum.read() +2);이다
+
+
+*실제 프로그램은 기본 data type 을 사용하여 다양한 자료구조를 구축하여 사용하다.
+ -queue,stack,binary tree, vector ->등의 push_back,pop_back 하는것도 atomic하게 해야한다.
+
+
+*stl은 멀티스레드에서 동작하라고 설계한게 아니다.
+
+*Non-Blocking 프로그램을 해야한다.
+
+*CAS 명령어는 x86 CPU에서 lock cmpxchg [A],b 
+
+
+
+
+
+
+
+
 
 
 

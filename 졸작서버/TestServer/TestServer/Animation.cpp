@@ -1,4 +1,5 @@
 #include "Global.h"
+#include "TestServer.h"
 #include "Animation.h"
 
 
@@ -21,7 +22,7 @@ void CAnimation::LoadAnimationInfo()
 	in >> count;
 	
 
-	AnimationInfo* animInfo = new AnimationInfo[12];
+	AnimationInfo* animInfo = new AnimationInfo[count];
 	for (int i = 0; i < count; ++i) 
 	{
 		
@@ -42,12 +43,35 @@ void CAnimation::LoadAnimationInfo()
 
 
 }
-void CAnimation::DecideAnimation(int& animationNum,float& fTimeElapsed)
+bool CAnimation::DecideAnimation(SOCKETINFO& clients,const float& fSpeed,const float& fTimeElapsed,const UCHAR& key)
 {
+	bool b_update = false;
+//	clients.
+	if(fSpeed == 0.0f)
+	{
+		clients.player.animationNum = PLAYER_ANIMATION_NUM::IDLE;
+		b_update = true;
+
+	}
+	else
+	{
+		if(key == VK_UP )
+		{
+			clients.player.animationNum = PLAYER_ANIMATION_NUM::RUN_FAST;
+			b_update = true;
+		}
+		else if(key == VK_DOWN )
+		{
+			clients.player.animationNum = PLAYER_ANIMATION_NUM::RUNBACKWARD;
+			b_update = true;
+		}
 	
+	}
+	return b_update;
 }
 
-void CAnimation::UpdateAnimation(float& fTimeElapsed)
+void CAnimation::UpdateAnimation(SOCKETINFO& clients,float fTimeElapsed)
 {
+
 	
 }

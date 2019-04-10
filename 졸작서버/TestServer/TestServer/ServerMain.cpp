@@ -17,6 +17,8 @@ WIN closesocket    : 소켓종료
 
 using namespace std;
 
+std::mutex     m_lFps;				//프레임 락
+
 
 int main()
 {
@@ -38,12 +40,16 @@ int main()
 	
 	//function<void(CServerFramework&)> wt = &CServerFramework::Worker_Thread;
 	//function<void(CServerFramework&)> doAcc = &CServerFramework::Do_Accept;
-
+	
+	
+	
+	server.m_GameTimer.Tick(60.0f);
 	for(int i=0; i< 4 ;++i)
 	{
 		worker_threads.emplace_back(thread{ &CServerFramework::Worker_Thread ,&server});
 	}
 	
+
 	thread accept_thread{ &CServerFramework::Do_Accept,&server };
 
 

@@ -20,6 +20,8 @@ constexpr char SC_LOGIN_OK = 0x01;
 constexpr char SC_PUTPLAYER = 0x02;
 constexpr char SC_REMOVE_PLAYER = 0x03;
 constexpr char SC_POS = 0x04;
+constexpr char SC_CHANGE_ANIM = 0x05;
+constexpr char SC_TIMER_UPDATE = 0x06;
 
 #pragma pack(push,1)
 
@@ -27,6 +29,9 @@ constexpr char SC_POS = 0x04;
 struct PLAYER
 {
 	bool isBomber;			//플레이어들의 역할
+	byte  animationNum;		//애니메이션 번호
+	byte  usedItem;			//사용되는 아이템 정보
+	byte  playerState;		//플레이어 상태
 	//XMFLOAT4X4 worldMatrix;	//위치 회전 정보 
 	XMFLOAT3 xmf3Position;
 	XMFLOAT3 xmf3Right;
@@ -35,13 +40,8 @@ struct PLAYER
 	float pitch;			//모델의 회전 (pitch,yaw,roll)
 	float yaw;
 	float roll;
-	XMFLOAT3 velocity;		//속도
-	//XMFLOAT3 pos;			//플레이어의 위치
-	//XMFLOAT4 dir;			//플레이어들 방향(쿼터니언)
-	byte  animationNum;		//애니메이션 번호
 	float animationTime;	//애니메이션 시간 정보
-	byte  usedItem;			//사용되는 아이템 정보
-	byte  playerState;		//플레이어 상태
+	XMFLOAT3 velocity;		//속도
 	DWORD direction;		//방향 정보
 
 };
@@ -83,6 +83,21 @@ struct SC_PACKET_PUT_PLAYER
 	char size;
 	char type;
 	char id;
+};
+
+struct SC_CHANGE_ANIMATION
+{
+	char size;
+	char type;
+	char id;
+	char animationNum;
+};
+struct SC_TIMER_PACKET
+{
+	char size;
+	char type;
+	char id;
+	char gameTime;
 };
 
 struct SC_PACKET_REMOVE_PLAYER

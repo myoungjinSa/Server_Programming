@@ -21,10 +21,12 @@ struct SOCKETINFO				//소켓의 정보
 {
 	//mutex   access_lock;
 	bool	conneceted;					//여러 쓰레드가 동시에 접근한다. 
+	char	packet_buf[MAX_BUFFER];		//재조립이 다 안되어 있을 경우 필요함 // 두개의 worker 쓰레드가 동시에 건드리지 않음
+	DWORD    m_dwDirection;			
 
 	OVERLAPPED_EX overlapped;			//어느 한 순간에는 한 쓰레드 하나만 읽고 쓰고 한다. 한번 만들면 바꾸지 않음, //두개의 worker 쓰레드가 동시에 건드리지 않음
 	SOCKET	socket;
-	char	packet_buf[MAX_BUFFER];		//재조립이 다 안되어 있을 경우 필요함 // 두개의 worker 쓰레드가 동시에 건드리지 않음
+	
 	int		prev_size;
 	//int		x, y;
 	
@@ -49,10 +51,7 @@ struct SOCKETINFO				//소켓의 정보
 	XMFLOAT3 xmf3LastRightVector;
 	XMFLOAT3 xmf3LastLookVector;
 	XMFLOAT3 xmf3LastUpVector;
-	DWORD    m_dwDirection;				
-
-
-
+		
 	//POS		position;
 
 	//HP,플레이어 정보는 이쪽에 들어가면됨.
@@ -79,13 +78,13 @@ private:
 	SOCKET m_listen_Socket;
 	const std::string SERVER_IP = "127.0.0.1";
 	
-	CGameTimer m_GameTimer;
-	std::mutex     m_lFps;				//프레임 락
-
+	
+	
 	PHYSICS m_physicsInfo;				//플레이어들 위치계산에 공통적으로 적용할 변수 집합
 
 	CHeightMapImage*	m_pHeightMap;
 
+	
 	std::unique_ptr<CAnimation> m_pAnimationInfo;
 public:
 
@@ -101,6 +100,8 @@ public:
 	void Send_Login_Packet(char to);
 	void Send_Put_Player_Packet(char to, char object);
 	void Send_Pos_Packet(char to, char object);
+	void Send_Change_Animation_Packet(char to, char object);
+	void Send_Timer_Packet(char to);
 
 	void Network_Initialize();
 	void Do_Recv(char id);
@@ -115,19 +116,16 @@ public:
 	void SetDirection(SOCKETINFO& clients,UCHAR& key);
 	void RotateModel(SOCKETINFO& clients, float x, float y, float z);
 	void RotateClientsAxisY(SOCKETINFO& clients,float fTimeElapsed);
-	void UpdateClientPos(SOCKETINFO& clients,float fTimeElapsed);
+	float& UpdateClientPos(SOCKETINFO& clients,float fTimeElapsed,const UCHAR& key);
 
 
 	const byte& GetClientCurrentAnimation(SOCKETINFO& clients) const { return clients.player.animationNum; }
-	void DecideClientsAnimation(SOCKETINFO& clients,int& nAnimationNum,float& fTimeElapsed);
-	void UpdateClientsAnimation(SOCKETINFO& clients,float& fTimeElapsed);
-
-
+	
 	//클라이언트가 하이트맵 아래로 떨어지는것을 막아주는 처리
 	void ProcessClientHeight(SOCKETINFO& clients);
 
 	//마찰력 계산
-	void ProcessFriction(SOCKETINFO& clients);
+	float& ProcessFriction(SOCKETINFO& clients,float& fLength);
 
 	void Process_Packet(char id, char* buf);
 
@@ -138,7 +136,8 @@ public:
 
 public:
 	HANDLE g_iocp;		//g_iocp는 여러 쓰레드가 읽기 동작만 하기 때문에 mutex가 필요없다
-	
+	float m_fGameTime;
+	CGameTimer m_GameTimer;
 	enum KEY
 	{
 		KEY_IDLE		= 0x00,
@@ -154,8 +153,7 @@ public:
 	};
 	enum ITEM { NOHAVE =0,HAMMER,GOLD_HAMMER,GOLD_TIMER,BOMB};
 	enum PLAYER_NUM { PLAYER1 ,PLAYER2 ,PLAYER3 ,PLAYER4 ,PLAYER5 ,PLAYER6};
-	enum PLAYER_ANIMATION_NUM { IDLE, JUMP,RUN_FAST,RUNBACKWARD,ATK3,Digging,Die2,RaiseHand,Ice,Victory,Aert,Slide};
-	enum PLAYER_STATE { NONE,ICE,BREAK};	//플레이어 상태
+enum PLAYER_STATE { NONE,ICE,BREAK};	//플레이어 상태
 	enum STATE_TYPE {Init,Run,Over};
 };
 

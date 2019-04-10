@@ -6,6 +6,7 @@
 
 
 CServerFramework::CServerFramework()
+	:m_fGameTime{300.0f}
 {
 
 }
@@ -140,6 +141,7 @@ void CServerFramework::Send_Put_Player_Packet(char to,char object)
 	packet.id = object;
 	packet.size = sizeof(packet);
 	packet.type = SC_PUTPLAYER;
+	//packet.player_Packet.animationNum = PLAYER_ANIMATION_NUM::ATK3;
 	packet.player_Packet = clients[object].player;
 
 
@@ -153,7 +155,10 @@ void CServerFramework::Send_Pos_Packet(char to, char object)
 
 	packet.id = object;
 	packet.size = sizeof(packet);
+
 	packet.type = SC_POS;
+	//packet.player_Packet.animationNum = PLAYER_ANIMATION_NUM::ATK3;
+	//packet.player_Packet.animationNum = PLAYER_ANIMATION_NUM::IDLE;
 	//packet.player_Packet.xmf3Position = clients[object].player.xmf3Position;
 	//packet.player_Packet.xmf3Look = clients[object].player.xmf3Look;
 	//packet.player_Packet.xmf3Right = clients[object].player.xmf3Right;
@@ -162,6 +167,32 @@ void CServerFramework::Send_Pos_Packet(char to, char object)
 
 
 	
+	Send_Packet(to, reinterpret_cast<char*>(&packet));
+
+}
+
+void CServerFramework::Send_Timer_Packet(char to)
+{
+	SC_TIMER_PACKET packet;
+
+	packet.id = to;
+	packet.size = sizeof(packet);
+	packet.type = SC_TIMER_UPDATE;
+	packet.gameTime = m_fGameTime;
+
+	Send_Packet(to, reinterpret_cast<char*>(&packet));
+
+}
+void CServerFramework::Send_Change_Animation_Packet(char to,char object)
+{
+	SC_CHANGE_ANIMATION packet;
+
+	packet.id = object;
+	packet.size = sizeof(packet);
+	packet.type = SC_CHANGE_ANIM;
+
+	packet.animationNum = clients[object].player.animationNum;
+
 	Send_Packet(to, reinterpret_cast<char*>(&packet));
 
 }
@@ -386,11 +417,44 @@ void CServerFramework::Process_Packet(char id,char* buf)
 	}
 	//clients[id].x = x;
 	//clients[id].y = y;
+	
+	
+	//if (m_fGameTime >= 0.0f) {
+	//	m_fGameTime -= m_GameTimer.GetTimeElapsed();
+	//		
+	//}
+	//else
+	//{
+	//	m_fGameTime = 0.0f;
+	//}
+
+
+	//for(int i=0;i<MAX_USER;++i)
+	//{
+	//	if(clients[i].conneceted == true)
+	//	{
+	//		Send_Timer_Packet(i);
+	//	}
+	//}
+	//		
 
 	SetDirection(clients[id], key);
 
-	UpdateClientPos(clients[id], m_GameTimer.GetTimeElapsed());
+	float& fSpeed = UpdateClientPos(clients[id], m_GameTimer.GetTimeElapsed(),key);
+
+	bool bUpdateAnimation = m_pAnimationInfo->DecideAnimation(clients[id],fSpeed ,m_GameTimer.GetTimeElapsed(),key);
 	
+	if(bUpdateAnimation)
+	{
+		for (int i = 0; i < MAX_USER; ++i)
+		{
+			if (clients[i].conneceted == true)
+			{
+				Send_Change_Animation_Packet(i, id);
+			}
+		}
+	}
+
 	for(int i=0;i<MAX_USER ;++i)
 	{
 		if (clients[i].conneceted == true) {
@@ -457,9 +521,9 @@ void CServerFramework::SetClient_FirstPosition(SOCKETINFO& clients)
 	clients.player.xmf3Up = XMFLOAT3(0.0f, 1.0f, 0.0f);
 }
 
-void CServerFramework::ProcessFriction(SOCKETINFO& clients)
+float& CServerFramework::ProcessFriction(SOCKETINFO& clients,float& fLength)
 {
-	float fLength = Vector3::Length(clients.player.velocity);
+	fLength = Vector3::Length(clients.player.velocity);
 	float fDeclaration = (m_physicsInfo.m_fFriction * m_GameTimer.GetTimeElapsed());
 
 	if(fDeclaration > fLength)
@@ -467,10 +531,11 @@ void CServerFramework::ProcessFriction(SOCKETINFO& clients)
 		fDeclaration = fLength;
 		clients.player.velocity = Vector3::Add(clients.player.velocity, Vector3::ScalarProduct(clients.player.velocity, -fDeclaration,true));
 	}
+	return fLength;
 	
 }
 
-void CServerFramework::UpdateClientPos(SOCKETINFO& clients, float fTimeElapsed)
+float& CServerFramework::UpdateClientPos(SOCKETINFO& clients, float fTimeElapsed,const UCHAR& key)
 {
 	if (clients.player.direction == DIR_FORWARD) {
 		clients.player.velocity = Vector3::Add(clients.player.velocity, clients.player.xmf3Look, 1.0f);
@@ -503,21 +568,14 @@ void CServerFramework::UpdateClientPos(SOCKETINFO& clients, float fTimeElapsed)
 	clients.player.velocity = clients.player.velocity;
 
 	ProcessClientHeight(clients);
-	ProcessFriction(clients);
-	
+	fLength=ProcessFriction(clients,fLength);
+
+	return fLength;
 }
 
 
-void CServerFramework::DecideClientsAnimation(SOCKETINFO& clients,int& nAnimationNum,float& fTimeElapsed)
-{
-	
-	
-}
-void CServerFramework::UpdateClientsAnimation(SOCKETINFO& clients,float& fTimeElapsed)
-{
 
-	
-}
+
 void CServerFramework::SetDirection(SOCKETINFO& clients,UCHAR& key)
 {
 	static UCHAR pKeysBuffer[256];
@@ -667,10 +725,11 @@ void CServerFramework::Worker_Thread()
 
 
 		
-		m_GameTimer.Tick(0.0f);
-		
+	
 		BOOL is_Error = GetQueuedCompletionStatus(g_iocp, &io_byte, &key, reinterpret_cast<LPWSAOVERLAPPED*>(&lpOver_ex), INFINITE);
 		
+
+
 		if(is_Error == FALSE)
 		{
 			Error_Display(const_cast<char*>("GetQueuedCompletionStatus Error"), WSAGetLastError());
