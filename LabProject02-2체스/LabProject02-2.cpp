@@ -4,6 +4,7 @@
 #include "stdafx.h"
 #include "LabProject02-2.h"
 #include "GameFramework.h"
+#include "Network.h"
 
 #define MAX_LOADSTRING 100
 
@@ -83,7 +84,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
 	ghAppInstance = hInstance;
 
-	RECT rc = { 0, 0, FRAME_BUFFER_WIDTH, FRAME_BUFFER_HEIGHT };
+	RECT rc = { 0, 0, FRAME_WIDTH, FRAME_HEIGHT };
 	DWORD dwStyle = WS_OVERLAPPED | WS_CAPTION | WS_MINIMIZEBOX | WS_BORDER | WS_SYSMENU;
 	AdjustWindowRect(&rc, dwStyle, FALSE);
 	HWND hMainWnd = CreateWindow(szWindowClass, szTitle, dwStyle, CW_USEDEFAULT, CW_USEDEFAULT, rc.right - rc.left, rc.bottom - rc.top, NULL, NULL, hInstance, NULL);
@@ -139,6 +140,26 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		hdc = ::BeginPaint(hWnd, &ps);
 		EndPaint(hWnd, &ps);
 		break;
+	case WM_SOCKET:
+	{
+		if (WSAGETSELECTERROR(lParam)) 
+		{
+				closesocket((SOCKET)wParam);
+				gGameFramework.ClientError();
+				break;
+		}
+		switch(WSAGETSELECTEVENT(lParam))
+		{
+		case FD_READ:
+			gGameFramework.ReadPacket((SOCKET)wParam);
+			break;
+		case FD_CLOSE:
+			closesocket((SOCKET)wParam);
+			gGameFramework.ClientError();
+			break;
+		}
+	}
+	break;
 	case WM_DESTROY:
 		::PostQuitMessage(0);
 		break;

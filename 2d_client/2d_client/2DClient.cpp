@@ -27,8 +27,8 @@
 // defines for windows 
 #define WINDOW_CLASS_NAME L"WINXCLASS"  // class name
 
-#define WINDOW_WIDTH    680   // size of window
-#define WINDOW_HEIGHT   730
+#define WINDOW_WIDTH    1200   // size of window
+#define WINDOW_HEIGHT   800
 
 #define	BUF_SIZE				1024
 #define	WM_SOCKET				WM_USER + 1
@@ -458,7 +458,7 @@ int Game_Init(void *parms)
 	//lpddclipper = DD_Attach_Clipper(lpddsback,1,&screen_rect);
 
 	// hide the mouse
-	ShowCursor(FALSE);
+	ShowCursor(TRUE);
 
 
 	WSADATA	wsadata;

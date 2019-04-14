@@ -1,41 +1,19 @@
 #pragma once
 
-#define _WINSOCK_DEPRECATED_NO_WARNINGS
-#pragma comment(lib,"ws2_32")
 
 
-#include<winSock2.h>
+constexpr int WM_SOCKET = WM_USER + 1;
+
+//#define KEY_IDLE	0x00
+//#define KEY_RIGHT	0x01
+//#define KEY_LEFT	0x02
+//#define KEY_UP		0x03
+//#define KEY_DOWN	0x04
 
 
-
-#define KEY_IDLE	0x00
-#define KEY_RIGHT	0x01
-#define KEY_LEFT	0x02
-#define KEY_UP		0x03
-#define KEY_DOWN	0x04
-
-
-#define MAXCLIENT  10
+//#define MAXCLIENT  10
 #pragma pack(1)
 
-typedef struct POSITION
-{
-	POSITION(){}
-	POSITION(float x,float y)
-	: x(x),y(y)
-	{}
-	float x;
-	float y;
-}POS;
-
-struct PlayerInfo
-{
-	PlayerInfo() {};
-	PlayerInfo(byte p,float x,float y) : player_id(p),position(x,y){}
-	byte  player_id;				//플레이어 정보
-	POS position;
-	
-};
 
 struct CS_RUN
 {
@@ -53,10 +31,11 @@ struct SC_RUN
 {
 	//SC_RUN(){}
 	//SC_RUN(PlayerInfo p):player(p) {}
-	PlayerInfo player[MAXCLIENT];
+	PlayerInfo player[MAX_USER];
 	byte playerCount;
 	byte index;
-	
+	byte xStep;
+	byte yStep;
 };
 
 #pragma pack()
@@ -71,6 +50,7 @@ struct SOCKETINFO
 	CS_RUN cs_run;
 	SC_RUN sc_run;
 };
+class CGameFramework;
 
 class CNetwork 
 {
@@ -83,30 +63,45 @@ public:
 
 	int recvn(char *buf, int len, int flags);
 
-	void Initialize();
-	void Destroy();
-	void SendPacket();
-	void RecvPacket();
-
-	const CS_RUN& getCSRunPacket() { return m_csRunPacket; }
-	const SC_RUN& getSCRunPacket() { return m_scRunPacket; }
-
-	void SetCSRunPacket(CS_RUN& cs_packet) { m_csRunPacket = cs_packet; }
-
+	void Initialize(HWND window,CGameFramework* client);
+	
+	void ReadPacket(SOCKET sock);
+	
+	void ShutDown();
+	void ClientError();
+	
 	int GetClientNum() { return m_clientCount; }
 
+	void SetClientNum(int num) { m_clientCount = num; }
 	enum PLAYER_INFO {PLAYER_1,PLAYER_2,PLAYER_3,PLAYER_4,PLAYER_5,PLAYER_6};
 
 	std::vector<PlayerInfo> m_vPlayer;
-private:
+
+	WSABUF m_Send_Wsabuf;
+	
+	WSABUF m_Recv_Wsabuf;
+
+	char   m_Send_Buffer[MAX_BUFFER];
+	char   m_Recv_Buffer[MAX_BUFFER];
 	SOCKET m_socket;
+private:
+	
 	SOCKADDR_IN m_serverAddr;
 
 	const std::string SERVERIP = "127.0.0.1";
 	const u_short SERVERPORT = 3500;
+	CGameFramework* m_gameClient{nullptr};
 
-	CS_RUN m_csRunPacket;
-	SC_RUN m_scRunPacket;
+	
+
+	
+
+	char  m_packet_buffer[MAX_BUFFER];
+
+	
+	DWORD m_In_Packet_Size{ 0 };
+
+	int   m_Saved_Packet_Size{ 0 };
 
 	int m_clientCount{ 0 };
 	bool m_bSendPacket{ false };

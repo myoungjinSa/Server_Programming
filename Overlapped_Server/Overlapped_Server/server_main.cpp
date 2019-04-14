@@ -24,11 +24,11 @@ using namespace std;
 #define MAX_BUFFER        1024
 #define SERVER_PORT       3500
 
-#define KEY_IDLE	0x00
-#define KEY_RIGHT	0x01
-#define KEY_LEFT	0x02
-#define KEY_UP		0x03
-#define KEY_DOWN	0x04
+#define CS_UP				0x01
+#define CS_DOWN				0x02
+#define CS_LEFT				0x03
+#define CS_RIGHT			0x04
+#define CS_IDLE				0x05
 
 #define FRAME_WIDTH  1200
 #define FRAME_HEIGHT 800
@@ -75,7 +75,8 @@ struct SC_RUN
 	PlayerInfo player[MAXCLIENT];
 	byte playerCount;
 	byte index;
-	
+	byte xStep;
+	byte yStep;
 };
 
 
@@ -105,6 +106,9 @@ std::vector<PlayerInfo> m_vPlayer;
 //타입은 정해져 있음. 
 void CALLBACK recv_callback(DWORD Error, DWORD dataBytes, LPWSAOVERLAPPED overlapped, DWORD lnFlags);
 void CALLBACK send_callback(DWORD Error, DWORD dataBytes, LPWSAOVERLAPPED overlapped, DWORD lnFlags);
+
+const int fStartX = 7500;
+const int fStartY = 7500;
 
 	//클라이언트의 프레임 설정
 const int fWidthStep = FRAME_WIDTH / 8;
@@ -182,8 +186,8 @@ int main()
 		
 		clientsMap[clientSocket].socket = clientSocket;
 		
-		clientsMap[clientSocket].player_Info.position.x = fWidthStep * 1.0f +(fWidthStep * clientCount);
-		clientsMap[clientSocket].player_Info.position.y = fHeightStep * 1.0f + (fHeightStep * clientCount);
+		clientsMap[clientSocket].player_Info.position.x = fStartX;//fWidthStep * 1.0f +(fWidthStep * clientCount);
+		clientsMap[clientSocket].player_Info.position.y = fStartY;//fHeightStep * 1.0f + (fHeightStep * clientCount);
 		//대입연산자가 후위증가연산자보다 먼저다.
 		clientsMap[clientSocket].player_Info.player = clientCount;
 		clientsMap[clientSocket].sc_run.index = clientCount;
@@ -244,36 +248,37 @@ void CALLBACK recv_callback(DWORD Error, DWORD dataBytes, LPWSAOVERLAPPED overla
 		clientCount--;
 		cout << clientCount << endl;
 
-		for(auto iter = m_vPlayer.begin();iter !=m_vPlayer.end();)
-		{
-			m_vPlayer.erase(iter);
-		}
-		clientsMap.erase(client_s);
+		m_vPlayer.clear();
+		
 		return;
 	}  // 클라이언트가 closesocket을 했을 경우
 
-
+	DWORD dir = CS_IDLE;
 	switch(clientsMap[client_s].cs_run.key)
 	{
-	case KEY_IDLE:
+	case CS_IDLE:
 		//cout << "IDLE" << endl;
 		
 		break;
-	case KEY_UP:
-		m_vPlayer[clientsMap[client_s].cs_run.player].position.y -= fHeightStep;
-		
+	case CS_UP:
+		m_vPlayer[clientsMap[client_s].cs_run.player].position.y = -fHeightStep;
+		clientsMap[client_s].sc_run.yStep = fHeightStep;
+		clientsMap[client_s].sc_run.xStep = 0.0f;
 		break;
-	case KEY_DOWN:
-		m_vPlayer[clientsMap[client_s].cs_run.player].position.y += fHeightStep;
+	case CS_DOWN:
+		m_vPlayer[clientsMap[client_s].cs_run.player].position.y = fHeightStep;
+		clientsMap[client_s].sc_run.yStep = -fHeightStep;
+		clientsMap[client_s].sc_run.xStep = 0.0f;
 		break;
-	case KEY_RIGHT:
-		m_vPlayer[clientsMap[client_s].cs_run.player].position.x += fWidthStep;
-		
+	case CS_RIGHT:
+		m_vPlayer[clientsMap[client_s].cs_run.player].position.x = fWidthStep;
+		clientsMap[client_s].sc_run.xStep = fWidthStep;
+		clientsMap[client_s].sc_run.yStep = 0.0f;
 		break;
-	case KEY_LEFT:
-
-		m_vPlayer[clientsMap[client_s].cs_run.player].position.x -= fWidthStep;
-		
+	case CS_LEFT:
+		m_vPlayer[clientsMap[client_s].cs_run.player].position.x = -fWidthStep;
+		clientsMap[client_s].sc_run.xStep = -fWidthStep;
+		clientsMap[client_s].sc_run.yStep = 0.0f;
 		
 		break;
 	default:
@@ -288,7 +293,8 @@ void CALLBACK recv_callback(DWORD Error, DWORD dataBytes, LPWSAOVERLAPPED overla
 		clientsMap[client_s].sc_run.player[i].player =m_vPlayer[i].player;
 	
 	}
-	
+
+		
 	clientsMap[client_s].sc_run.playerCount = clientCount;
 	clientsMap[client_s].dataBuffer.len = sizeof(SC_RUN);
 	clientsMap[client_s].dataBuffer.buf =(char*)&clientsMap[client_s].sc_run.player;
@@ -324,12 +330,8 @@ void CALLBACK send_callback(DWORD Error, DWORD dataBytes, LPWSAOVERLAPPED overla
 	{
 		closesocket(clientsMap[client_s].socket);
 		clientCount--;
-		//cout << clientCount << endl;
-		for(auto iter = m_vPlayer.begin();iter !=m_vPlayer.end();)
-		{
-			m_vPlayer.erase(iter);
-		}
-		clientsMap.erase(client_s);
+
+		m_vPlayer.clear();
 		return;
 	}  // 클라이언트가 closesocket을 했을 경우
 

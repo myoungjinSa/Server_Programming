@@ -50,9 +50,9 @@
 #include <DirectXPackedVector.h>
 #include <DirectXColors.h>
 #include <DirectXCollision.h>
+#include <array>
 
-
-
+#include "../과제4 서버/Server/Server/Protocol.h"
 #pragma comment(linker, "/entry:wWinMainCRTStartup /subsystem:console")
 
 
@@ -63,8 +63,11 @@ using Microsoft::WRL::ComPtr;
 
 #define _CRTDBG_MAP_ALLOC
 
-#define FRAME_BUFFER_WIDTH				1200
-#define FRAME_BUFFER_HEIGHT				800
+//#define FRAME_BUFFER_WIDTH				1200f
+// FRAME_BUFFER_HEIGHT				800f
+//constexpr int FRAME_BUFFER_WIDTH = 1200;
+
+//constexpr int FRAME_BUFFER_HEIGHT		= 800;
 
 //#define _WITH_SWAPCHAIN_FULLSCREEN_STATE
 

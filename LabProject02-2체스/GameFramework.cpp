@@ -56,7 +56,7 @@ void CGameFramework::CreateNetworkSocket()
 {
 	m_pNetwork = new CNetwork();
 
-	m_pNetwork->Initialize();
+	m_pNetwork->Initialize(m_hWnd,this);
 
 }
 
@@ -116,6 +116,7 @@ void CGameFramework::CreateSwapChain()
 
 	hResult = m_pdxgiFactory->MakeWindowAssociation(m_hWnd, DXGI_MWA_NO_ALT_ENTER);
 	m_nSwapChainBufferIndex = m_pdxgiSwapChain->GetCurrentBackBufferIndex();
+
 
 #ifndef _WITH_SWAPCHAIN_FULLSCREEN_STATE
 	CreateRenderTargetViews();
@@ -422,6 +423,11 @@ void CGameFramework::OnProcessingMouseMessage(HWND hWnd, UINT nMessageID, WPARAM
 	}
 }
 
+void CGameFramework::ReadPacket(SOCKET socket)
+{
+	if (m_pNetwork)
+		m_pNetwork->ReadPacket(socket);
+}
 void CGameFramework::OnProcessingKeyboardMessage(HWND hWnd, UINT nMessageID, WPARAM wParam, LPARAM lParam)
 {
 
@@ -436,39 +442,6 @@ void CGameFramework::OnProcessingKeyboardMessage(HWND hWnd, UINT nMessageID, WPA
                     break;
                 case VK_RETURN:
                     break;
-				case VK_LEFT:
-					if (m_pNetwork)
-					{
-						CS_RUN cs_runPacket = m_pNetwork->getCSRunPacket();
-						cs_runPacket.key = KEY_LEFT;
-						m_pNetwork->SetCSRunPacket(cs_runPacket);
-					}
-					break;
-				case VK_RIGHT:
-					if (m_pNetwork)
-					{
-						CS_RUN cs_runPacket = m_pNetwork->getCSRunPacket();
-						cs_runPacket.key = KEY_RIGHT;
-						m_pNetwork->SetCSRunPacket(cs_runPacket);
-					}
-					break;
-				case VK_UP:
-					if (m_pNetwork)
-					{
-						CS_RUN cs_runPacket = m_pNetwork->getCSRunPacket();
-						cs_runPacket.key = KEY_UP;
-						m_pNetwork->SetCSRunPacket(cs_runPacket);
-					}
-					break;
-				case VK_DOWN:
-					if (m_pNetwork)
-					{
-						CS_RUN cs_runPacket = m_pNetwork->getCSRunPacket();
-						cs_runPacket.key = KEY_DOWN;
-						m_pNetwork->SetCSRunPacket(cs_runPacket);
-					}
-					break;
-
 				case VK_F9:
 					ChangeSwapChainState();
 					break;
@@ -477,10 +450,87 @@ void CGameFramework::OnProcessingKeyboardMessage(HWND hWnd, UINT nMessageID, WPA
 					break;
 			} 
 			break;
+		case WM_KEYDOWN:
+			switch(wParam)
+			{
+				DWORD iobyte;
+			case VK_RIGHT:
+			{
+				CS_PACKET_UP *myPacket = reinterpret_cast<CS_PACKET_UP*>(m_pNetwork->m_Send_Buffer);
+				myPacket->size = sizeof(myPacket);
+				m_pNetwork->m_Send_Wsabuf.len = sizeof(myPacket);
+				myPacket->type = CS_RIGHT;
+
+				int ret = WSASend(m_pNetwork->m_socket, &m_pNetwork->m_Send_Wsabuf, 1, &iobyte, 0, NULL, NULL);
+				if (ret)
+				{
+					int error_code = WSAGetLastError();
+					std::cout << "Error while Sending Packet[" << error_code << "]\n";
+
+				}
+			}
+			break;
+			case VK_LEFT:
+			{
+				CS_PACKET_UP *myPacket = reinterpret_cast<CS_PACKET_UP*>(m_pNetwork->m_Send_Buffer);
+				myPacket->size = sizeof(myPacket);
+				m_pNetwork->m_Send_Wsabuf.len = sizeof(myPacket);
+				myPacket->type = CS_LEFT;
+
+				int ret = WSASend(m_pNetwork->m_socket, &m_pNetwork->m_Send_Wsabuf, 1, &iobyte, 0, NULL, NULL);
+				if (ret)
+				{
+					int error_code = WSAGetLastError();
+					std::cout << "Error while Sending Packet[" << error_code << "]\n";
+
+				}
+			}
+			break;
+			case VK_UP:
+			{
+				CS_PACKET_UP *myPacket = reinterpret_cast<CS_PACKET_UP*>(m_pNetwork->m_Send_Buffer);
+				myPacket->size = sizeof(myPacket);
+				m_pNetwork->m_Send_Wsabuf.len = sizeof(myPacket);
+				myPacket->type = CS_UP;
+
+				int ret = WSASend(m_pNetwork->m_socket, &m_pNetwork->m_Send_Wsabuf, 1, &iobyte, 0, NULL, NULL);
+				if (ret)
+				{
+					int error_code = WSAGetLastError();
+					std::cout << "Error while Sending Packet[" << error_code << "]\n";
+
+				}
+			}
+			break;
+			case VK_DOWN:
+			{
+				CS_PACKET_UP *myPacket = reinterpret_cast<CS_PACKET_UP*>(m_pNetwork->m_Send_Buffer);
+				myPacket->size = sizeof(myPacket);
+				m_pNetwork->m_Send_Wsabuf.len = sizeof(myPacket);
+				myPacket->type = CS_DOWN;
+
+				int ret = WSASend(m_pNetwork->m_socket, &m_pNetwork->m_Send_Wsabuf, 1, &iobyte, 0, NULL, NULL);
+				if (ret)
+				{
+					int error_code = WSAGetLastError();
+					std::cout << "Error while Sending Packet[" << error_code << "]\n";
+
+				}
+			}
+			break;
+			}
+			
+			break;
 		default:
 			break;
 	}
 }
+void CGameFramework::ClientError()
+{
+	if(m_pNetwork)
+		m_pNetwork->ClientError();
+}
+
 
 LRESULT CALLBACK CGameFramework::OnProcessingWindowMessage(HWND hWnd, UINT nMessageID, WPARAM wParam, LPARAM lParam)
 {
@@ -588,54 +638,255 @@ void CGameFramework::OnDestroy()
 	HRESULT hResult = pdxgiDebug->ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_DETAIL);
 	pdxgiDebug->Release();
 #endif
-	if (m_pNetwork) m_pNetwork->Destroy();
+	
 	
 }
 
-void CGameFramework::BuildChessBoard()
+void CGameFramework::ProcessPacket(char *ptr)
 {
-	for (int j = 0; j < 8; j++) 
+	static bool firstTime = true;
+
+	switch(ptr[1])
 	{
-		for (int i = 0; i < 8; i++)
+	case SC_LOGIN_OK:
+	{
+		SC_PACKET_LOGIN_OK* packet = reinterpret_cast<SC_PACKET_LOGIN_OK*>(ptr);
+		
+		myid = packet->id;
+		
+		std::cout <<  "id -" << myid << "\n";
+		break;
+
+	}
+	case SC_PUTPLAYER:
+	{
+		SC_PACKET_PUT_PLAYER *my_packet = reinterpret_cast<SC_PACKET_PUT_PLAYER*>(ptr);
+		int id = my_packet->id;
+
+		if(id == myid)
 		{
-			if (j % 2 == 0)
+			m_pNetwork->SetClientNum(my_packet->playerCount);
+			m_player.m_id = id;
+			m_player.m_bConnected = true;
+			m_player.m_pos.x = my_packet->x ;
+			m_player.m_pos.y = my_packet->y ;
+
+		}
+		else if(id < MAX_USER)
+		{
+			m_pNetwork->SetClientNum(my_packet->playerCount);
+			m_others[id % MAX_USER].m_id = id;
+			m_others[id % MAX_USER].m_bConnected = true;
+			m_others[id % MAX_USER].m_pos.x = my_packet->x ;
+			m_others[id % MAX_USER].m_pos.y = my_packet->y ;
+		}
+
+		break;
+	}
+	case SC_POS:
+	{
+		SC_PACKET_POS *my_packet = reinterpret_cast<SC_PACKET_POS *>(ptr);
+		int other_id = my_packet->id;
+
+		if(other_id == myid)
+		{
+			m_player.m_pos.x = my_packet->x ;
+			m_player.m_pos.y = my_packet->y ;
+			for (int i = 0; i < WORLDY; ++i)
 			{
-				if (i % 2 == 0) {
-					m_rect.left = m_fWidthStep * i;
-					m_rect.right = m_fWidthStep *( i + 1);
-					m_vecRect.emplace_back(m_rect);
-				}
-			}
-			else if (j % 2 == 1)
-			{
-				if( i % 2 == 0)
+				for(int j=0;j<WORLDX ;++j)
 				{
-					m_rect.left = m_fWidthStep * (i+1);
-					m_rect.right= m_fWidthStep * (i + 2);
-					m_vecRect.emplace_back(m_rect);
+					if (my_packet->dir == CS_LEFT) 
+					{
+						m_worldRect[i][j].m_pd2dPosition.x -= fWidthStep * 0.5f;
+					}
+					if(my_packet->dir == CS_RIGHT)
+					{
+						m_worldRect[i][j].m_pd2dPosition.x += fWidthStep * 0.5f;
+					}
+					if(my_packet->dir == CS_UP)
+					{
+						m_worldRect[i][j].m_pd2dPosition.y -= fHeightStep * 0.5f;
+					}
+					if (my_packet->dir == CS_DOWN)
+					{
+						m_worldRect[i][j].m_pd2dPosition.y += fHeightStep *0.5f;
+					}
 				}
 				
 			}
-			
 		}
-		m_rect.top += m_fHeightStep;
-		m_rect.bottom += m_fHeightStep;
+		else if(other_id < MAX_USER)
+		{
+			m_others[other_id % MAX_USER].m_pos.x = my_packet->x ;
+			m_others[other_id % MAX_USER].m_pos.y = my_packet->y ;
+		}
+		
+		break;
+	}
+	
 
+	case SC_REMOVE_PLAYER:
+	{
+		
+		SC_PACKET_REMOVE_PLAYER *my_packet = reinterpret_cast<SC_PACKET_REMOVE_PLAYER *>(ptr);
+		int other_id = my_packet->id;
+
+		if(other_id == myid)
+		{
+			m_player.m_bConnected = false;
+
+		}
+		else if(other_id < MAX_USER)
+		{
+			m_others[other_id].m_bConnected = false;
+		}
+		break;
 
 	}
+	default:
+		std::cout << "Unknown Packet Type [" << ptr[1] << "]\n";
+		break;
+		
+	}
 }
+
+void CGameFramework::BuildWorld()
+{
+
+	/*for(int j=0,k=0;j<100;++j)
+	{
+		for(int i=0;i<100;++i)
+		{
+			if(j % 2 == 0)
+			{
+				if (i % 2 == 0)
+				{
+					m_worldRect[k].bottom += m_fHeightStep;
+					m_worldRect[k].top += m_fHeightStep;
+					m_worldRect[k].left = m_fWidthStep * i;
+					m_worldRect[k++].right = m_fWidthStep * (i + 1);
+				}
+			}
+			else if(j % 2 == 1)
+			{
+				if( i % 2 ==0)
+				{
+					m_worldRect[k].bottom += m_fHeightStep;
+					m_worldRect[k].top += m_fHeightStep;
+					m_worldRect[k].left = m_fWidthStep * (i + 1);
+					m_worldRect[k++].right = m_fWidthStep * (i + 2);
+				}
+			}
+		}
+
+	}*/
+
+	for(int i=0,k=0; i<100;++i)
+	{
+		for(int j=0;j<100;++j)
+		{
+			
+			if (i % 2 == 0) 
+			{
+				if (j % 2 == 0)
+				{
+					m_worldRect[i][j].m_color = D2D1::ColorF::DarkGreen;
+					m_worldRect[i][j].m_pd2dPosition.x = m_fWidthStep * j;
+					m_worldRect[i][j].m_pd2dPosition.y = m_fHeightStep * i;
+				}
+				else
+				{
+					m_worldRect[i][j].m_color = D2D1::ColorF::WhiteSmoke;
+					m_worldRect[i][j].m_pd2dPosition.x = m_fWidthStep * j;
+					m_worldRect[i][j].m_pd2dPosition.y = m_fHeightStep * i;
+				}
+			}
+			else if(i % 2==1)
+			{
+				if (j % 2 == 0)
+				{
+					m_worldRect[i][j].m_color = D2D1::ColorF::WhiteSmoke;
+					m_worldRect[i][j].m_pd2dPosition.x = m_fWidthStep * j;
+					m_worldRect[i][j].m_pd2dPosition.y = m_fHeightStep * i;
+				}
+				else
+				{
+					m_worldRect[i][j].m_color = D2D1::ColorF::DarkGreen;
+					m_worldRect[i][j].m_pd2dPosition.x = m_fWidthStep * j;
+					m_worldRect[i][j].m_pd2dPosition.y = m_fHeightStep * i;
+				}
+
+			}
+		}
+	}
+}
+//void CGameFramework::BuildChessBoard()
+//{
+//	for (int j = 0; j < 8; j++) 
+//	{
+//		for (int i = 0; i < 8; i++)
+//		{
+//			if (j % 2 == 0)
+//			{
+//				if (i % 2 == 0) {
+//					m_rect.left = m_fWidthStep * i;
+//					m_rect.right = m_fWidthStep *( i + 1);
+//					m_vecRect.emplace_back(m_rect);
+//				}
+//			}
+//			else if (j % 2 == 1)
+//			{
+//				if( i % 2 == 0)
+//				{
+//					m_rect.left = m_fWidthStep * (i+1);
+//					m_rect.right= m_fWidthStep * (i + 2);
+//					m_vecRect.emplace_back(m_rect);
+//				}
+//				
+//			}
+//			
+//		}
+//		m_rect.top += m_fHeightStep;
+//		m_rect.bottom += m_fHeightStep;
+//
+//
+//	}
+//}
+
+////void CGameFramework::UpdateChessBoard()
+////{
+////	volatile float x = m_pNetwork->getSCRunPacket().xStep;
+////	volatile float y = m_pNetwork->getSCRunPacket().yStep;
+////	for(int i=0;i<100;++i)
+////	{
+////		for(int j=0;j<100;++j)
+////		{
+////			m_worldRect[i][j].m_pd2dPosition.x += x;
+////			m_worldRect[i][j].m_pd2dPosition.y += y;
+////		}
+////	}
+////	
+////	
+////}
+
 void CGameFramework::BuildObjects()
 {
 	m_pScene = new CScene();
 	if (m_pScene) m_pScene->BuildObjects(m_pd3d12Device);
 
-	BuildChessBoard();
-
+//	BuildChessBoard();
+	BuildWorld();
 	m_GameTimer.Reset();
 }
 
 void CGameFramework::ReleaseObjects()
 {
+	if(m_pNetwork) 
+	{
+		m_pNetwork->ShutDown();
+		delete m_pNetwork;
+	}
 	if (m_pScene) m_pScene->ReleaseObjects();
 	if (m_pScene) delete m_pScene;
 }
@@ -670,14 +921,14 @@ void CGameFramework::ProcessInput()
 	//	}
 	//}
 }
-void CGameFramework::CommunicateServer()
-{
-	if(m_pNetwork)
-	{
-		m_pNetwork->SendPacket();
-		m_pNetwork->RecvPacket();
-	}
-}
+//void CGameFramework::CommunicateServer()
+//{
+//	if(m_pNetwork)
+//	{
+//		m_pNetwork->SendPacket();
+//		m_pNetwork->RecvPacket();
+//	}
+//}
 
 void CGameFramework::AnimateObjects()
 {
@@ -709,16 +960,38 @@ void CGameFramework::MoveToNextFrame()
 	m_pnFenceValues[m_nSwapChainBufferIndex] = nFenceValue + 1;
 }
 
-void CGameFramework::DrawChessBoard(D2D1_SIZE_F &szRenderTarget,D2D1_POINT_2F& Point1,D2D1_POINT_2F& Point2,const int& fHeightStep,const int& fWidthStep)
+
+void CGameFramework::DrawChessBoard()
 {
 
-	for(auto iter = m_vecRect.begin();iter != m_vecRect.end();iter++)
-	{
-		D2D1_RECT_F nRect = *iter;
-		m_pd2dDeviceContext->FillRectangle(&nRect, m_pd2dChessBoardWhite);
-		
-	}
+
 	
+	D2D1_RECT_F nRect{0.0f,0.0f,0.0f,0.0f};
+	
+
+	for (int i = 0; i < WORLDY; ++i)
+	{
+		for (int j = 0; j < WORLDX; ++j)
+		{
+			
+			//if(fabsf(m_worldRect[i][j].m_pd2dPosition.x - x) <= 600 
+				//&& fabsf(m_worldRect[i][j].m_pd2dPosition.y - y) <=200	)
+			
+			nRect.left = m_worldRect[i][j].m_pd2dPosition.x ;
+			nRect.top = m_worldRect[i][j].m_pd2dPosition.y;
+			nRect.right = m_worldRect[i][j].m_pd2dPosition.x + m_fWidthStep;
+			nRect.bottom = m_worldRect[i][j].m_pd2dPosition.y  + m_fHeightStep ;
+				
+			
+			m_pd2dDeviceContext->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF(m_worldRect[i][j].m_color, 1.0f)), &m_pd2dChessBoardWhite);
+			m_pd2dDeviceContext->FillRectangle(&nRect, m_pd2dChessBoardWhite);
+			
+			
+		}
+	}
+	//std::cout << x << "," << y << std::endl;
+
+
 }
 
 
@@ -728,7 +1001,7 @@ void CGameFramework::FrameAdvance()
 
 	//ProcessInput();
 
-	CommunicateServer();
+//	CommunicateServer();
     //AnimateObjects();
 
 	HRESULT hResult = m_ppd3dCommandAllocators[m_nSwapChainBufferIndex]->Reset();
@@ -790,22 +1063,35 @@ void CGameFramework::FrameAdvance()
 	D2D1_POINT_2F Point1 = { 0.0f,0.0f };
 	D2D1_POINT_2F Point2 = { szRenderTarget.width - 10.0f, 10.0f };
 //
-	DrawChessBoard(szRenderTarget,Point1,Point2,m_fHeightStep,m_fWidthStep);
+	//BuildChessBoard();
+
+	//UpdateChessBoard();
+	
 	if (m_pNetwork) {
-		const SC_RUN& sc_runPacket = m_pNetwork->getSCRunPacket();
 		
+		DrawChessBoard();
+
+		D2D1_POINT_2F pl = { (FRAME_WIDTH / 8) * 4, (FRAME_HEIGHT / 8) * 4 };
+		
+		m_pd2dDeviceContext->DrawImage(m_pd2dfxBitmapSource, &pl);
+		std::cout << "id-" << (int)m_player.m_id << " À§Ä¡" << m_player.m_pos.x << "," << m_player.m_pos.y<<"\n";
 		for(int i=0;i<m_pNetwork->GetClientNum();++i)
 		{
-			m_offset.x = sc_runPacket.player[i].position.x;
-			m_offset.y = sc_runPacket.player[i].position.y;
+			if(m_others[i].m_bConnected)
+			{
+				D2D1_POINT_2F m_delta{0.0f,0.0f};
+				D2D1_POINT_2F pos{ 0.0f,0.0f };
 
-			m_pd2dDeviceContext->DrawImage(m_pd2dfxBitmapSource, &m_offset);
+				m_delta.x = m_player.m_pos.x - m_others[i].m_pos.x;
+				m_delta.y = m_player.m_pos.y - m_others[i].m_pos.y;
+
+				pos.x = pl.x + m_delta.x;
+				pos.y = pl.y + m_delta.y;
+
+				m_pd2dDeviceContext->DrawImage(m_pd2dfxBitmapSource, &pos);
+			}
 		}
 		
-
-		
-		
-
 	}
 
 	//std::cout << m_pNetwork->GetClientNum()<<"\n";

@@ -3,5 +3,4 @@ d:\server\server_programming\2d_server\server\server\testserver.cpp(409): warnin
 d:\server\server_programming\2d_server\server\server\testserver.cpp(426): warning C4244: '인수': 'ULONG'에서 'char'(으)로 변환하면서 데이터가 손실될 수 있습니다.
   server_main.cpp
   코드를 생성하고 있습니다...
-  LINK : D:\Server\Server_Programming\2d_server\Server\Debug\Server.exe을(를) 찾을 수 없거나 마지막 증분 링크에 의해 빌드되지 않았습니다. 전체 링크를 수행하고 있습니다.
   Server.vcxproj -> D:\Server\Server_Programming\2d_server\Server\Debug\Server.exe

@@ -3,6 +3,20 @@
 #include "Timer.h"
 #include "Scene.h"
 
+class Board
+{
+public:
+	int m_color;					
+	//ID2D1SolidColorBrush		*m_pd2dChessBoardColor = NULL;
+	D2D1_POINT_2F				m_pd2dPosition;
+
+};
+struct Player
+{
+	char						m_id;
+	D2D1_POINT_2F				m_pos;
+	bool						m_bConnected;
+};
 
 class CNetwork;
 #define	_WITH_DIRECT2D_IMAGE_EFFECT
@@ -23,37 +37,43 @@ public:
 	void CreateDirect2DDevice();
 #endif
 
-	void DrawChessBoard(D2D1_SIZE_F &,D2D1_POINT_2F &,D2D1_POINT_2F&,const int&,const int&);
+	void BuildWorld();
 	void CreateRenderTargetViews();
 	void CreateDepthStencilView();
 
 	void ChangeSwapChainState();
 
 	void CreateNetworkSocket();
-	void BuildChessBoard();
+	//void BuildChessBoard();
+
+	void DrawChessBoard();
 	void BuildObjects();
 	void ReleaseObjects();
 
+	void ProcessPacket(char *ptr);
 	void ProcessInput();
-	void CommunicateServer();
+
 	void AnimateObjects();
 	void FrameAdvance();
 
-
+	void ReadPacket(SOCKET socket);
 
 	void WaitForGpuComplete();
 	void MoveToNextFrame();
 
+	void ClientError();
 	void OnProcessingMouseMessage(HWND hWnd, UINT nMessageID, WPARAM wParam, LPARAM lParam);
 	void OnProcessingKeyboardMessage(HWND hWnd, UINT nMessageID, WPARAM wParam, LPARAM lParam);
 	LRESULT CALLBACK OnProcessingWindowMessage(HWND hWnd, UINT nMessageID, WPARAM wParam, LPARAM lParam);
 
+public:
+	int myid;
 private:
 	HINSTANCE					m_hInstance = NULL;
 	HWND						m_hWnd = NULL;
 
-	int							m_nWndClientWidth = FRAME_BUFFER_WIDTH;
-	int							m_nWndClientHeight = FRAME_BUFFER_HEIGHT;
+	int							m_nWndClientWidth = FRAME_WIDTH;
+	int							m_nWndClientHeight = FRAME_HEIGHT;
 
 	IDXGIFactory4				*m_pdxgiFactory = NULL;
 	IDXGISwapChain3				*m_pdxgiSwapChain = NULL;
@@ -109,11 +129,14 @@ private:
 	IWICImagingFactory			*m_pwicImagingFactory = NULL;
 	ID2D1Effect					*m_pd2dfxBitmapSource = NULL;
 
+
+	std::array<std::array<Board, 100>,100> m_worldRect;
 	std::vector<D2D1_RECT_F>	m_vecRect;
 	D2D1_RECT_F					m_rect;
-	D2D1_POINT_2F				m_offset;
-	const int m_fWidthStep		= FRAME_BUFFER_WIDTH  / 8;
-	const int m_fHeightStep		= FRAME_BUFFER_HEIGHT / 8;
+	Player						m_player;
+	Player						m_others[MAX_USER];
+	const int m_fWidthStep		= FRAME_WIDTH  / 8;
+	const int m_fHeightStep		= FRAME_HEIGHT / 8;
 
 	ID2D1DrawingStateBlock1		*m_pd2dsbDrawingState = NULL;
 	IWICFormatConverter			*m_pwicFormatConverter = NULL;

@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "GameFramework.h"
 #include "Network.h"
 #include <iostream>
 
@@ -6,8 +7,8 @@ using namespace std;
 
 CNetwork::CNetwork()
 	:m_socket(0),
-	m_serverAddr(),
-	m_csRunPacket(0,0)
+	m_serverAddr()
+
 {
 
 }
@@ -82,7 +83,7 @@ int CNetwork::recvn(char *buf,int len,int flags)
 }
 
 
-void CNetwork::Initialize()
+void CNetwork::Initialize(HWND window,CGameFramework* client)
 {
 	int retval = 0;
 	
@@ -94,7 +95,7 @@ void CNetwork::Initialize()
 	}
 
 	//socket
-	m_socket = WSASocket(AF_INET, SOCK_STREAM, 0,NULL,0,WSA_FLAG_OVERLAPPED);
+	m_socket = WSASocket(AF_INET, SOCK_STREAM, IPPROTO_TCP,NULL,0,0);
 	if (m_socket == INVALID_SOCKET)
 		err_quit("socket()");
 
@@ -108,72 +109,80 @@ void CNetwork::Initialize()
 	m_serverAddr.sin_port = htons(SERVERPORT);
 	m_serverAddr.sin_addr.s_addr = inet_addr(s.c_str());
 
-	retval = connect(m_socket, (SOCKADDR*)&m_serverAddr, sizeof(m_serverAddr));
-	if (retval == SOCKET_ERROR) {
-		
-		closesocket(m_socket);
+	retval = WSAConnect(m_socket, (SOCKADDR*)&m_serverAddr, sizeof(m_serverAddr),NULL,NULL,NULL,NULL);
+	WSAAsyncSelect(m_socket, window, WM_SOCKET, FD_CLOSE | FD_READ);
 
-		WSACleanup();
-		err_quit("connect()");
-		return ;
-	}
-	else
+	
+	m_Send_Wsabuf.buf = m_Send_Buffer;
+	m_Send_Wsabuf.len = MAX_BUFFER;
+
+	m_Recv_Wsabuf.buf = m_Recv_Buffer;
+	m_Recv_Wsabuf.len = MAX_BUFFER;
+
+	if (client) 
 	{
-		
+		m_gameClient = client;
 	}
+	
 
 	
 }
-
-void CNetwork::Destroy()
+void CNetwork::ClientError()
 {
-	closesocket(m_socket);
+	exit(-1);
+}
+void CNetwork::ShutDown()
+{
+	for(int i=0; i<MAX_USER;++i)
+	{
+		//클라이언트 강제 종료	
+	}
 
 	WSACleanup();
 }
 
-void CNetwork::SendPacket()
+void CNetwork::ReadPacket(SOCKET sock)
 {
-	int retval = 0;
+	DWORD iobyte, ioflag = 0;
 
-	SOCKETINFO* socketInfo;
-
-	socketInfo = (struct SOCKETINFO*)malloc(sizeof(struct SOCKETINFO));
-	memset((void*)socketInfo, 0x00, sizeof(struct SOCKETINFO));
-	socketInfo->dataBuffer.len = sizeof(CS_RUN);
-	socketInfo->dataBuffer.buf = (char*)&m_csRunPacket.key;
-
-	
-	retval = send(m_socket, socketInfo->dataBuffer.buf, socketInfo->dataBuffer.len, 0);
-
-	if (retval == SOCKET_ERROR)
+	int ret = WSARecv(sock, &m_Recv_Wsabuf, 1, &iobyte, &ioflag, NULL, NULL);
+	if(ret)
 	{
-		err_display("send()");
-		return;
+		int err_code = WSAGetLastError();
+		cout << "Recv Error[" << err_code << "]\n";
 	}
-	m_csRunPacket.key = KEY_IDLE;
-		
-	
-	
-	
-}
 
-void CNetwork::RecvPacket()
-{
-	int retval = 0;
+	BYTE *ptr = reinterpret_cast<BYTE*>(m_Recv_Buffer);
 
-	
-	retval = recvn((char*)&m_scRunPacket.player, sizeof(SC_RUN), 0);
-	if (retval == SOCKET_ERROR)
+	while(0 != iobyte)
 	{
-		err_display("recvn( )");
-		return;
-	}
-	
-	m_csRunPacket.player = m_scRunPacket.index;
-	
-	m_clientCount = (int)m_scRunPacket.playerCount;
+		if(0 == m_In_Packet_Size)
+		{
+			m_In_Packet_Size = ptr[0];
+		}
+		if( iobyte + m_Saved_Packet_Size >= m_In_Packet_Size)
+		{
+			memcpy(m_packet_buffer + m_Saved_Packet_Size, ptr, m_In_Packet_Size - m_Saved_Packet_Size);
+			
+			if(m_gameClient)
+			{
 
-	//cout <<"클라이언트 접속 수: "<<m_clientCount << endl;
+				m_gameClient->ProcessPacket(m_packet_buffer);
+
+			}
+
+			ptr += m_In_Packet_Size - m_Saved_Packet_Size;
+			iobyte -= m_In_Packet_Size - m_Saved_Packet_Size;
+			m_In_Packet_Size = 0;
+			m_Saved_Packet_Size = 0;
+
+		}
+		else
+		{
+			memcpy(m_packet_buffer + m_Saved_Packet_Size, ptr, iobyte);
+			m_Saved_Packet_Size += iobyte;
+			iobyte = 0;
+		}
+	}
 
 }

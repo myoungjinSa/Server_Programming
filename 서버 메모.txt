@@ -1,0 +1,218 @@
+2d게임과  3d 게임도 서버 프로그래머입장에서 차이가 크다
+3d게임이 당연히 훨씬 더 어려움
+
+서로 다가오는 캐릭터들끼리 부딪혔을때 못움직이게 구현하기 매우 까다롭다
+
+item drop 방식은 서버의 부하를 높게한다.
+
+시체 루팅은 서버의 부하가 없다.
+
+Script 언어로 npc 스토리 구현
+
+
+*멀티 스레드 이슈
+-충돌 
+  뚫고 지나가기?
+
+-아이템 주울 때  lock을 걸지 않고 어떻게 한명만 줍게 할 것인가를 고려해봐야한다.
+
+*BroadCasting 문제
+
+-클라이언트에서 게임월드의 상황을 볼 수 있으려면?
+
+1. 서버가 접속한 아바타는 물론 다른 object들의 상태도 보여 주어야 함.
+
+2. 하나의 object 의 상태가 변경되면
+  -주위에 존재하는 모든 아바타엑 변경내용을 전송해야한다.
+
+3. 자신이외의 다른 object 들의 상태를 보여주는 것
+
+4. 동접 N일때 N *N의 패킷 필요
+   1> 1초의 1번이동
+   2> 동접 5000=> 25M packet / sec
+   3> 1000cpu cycle per packet => 25GHz 필요
+   4> 패킷당 20byte => 4Gbps bandWidth
+
+-해결 ?
+  1> 근처의 object만 보여준다.
+
+*시야 처리를 구현하게 되면
+  
+
+
+//패킷 보내는 횟수 뿐만아니라 for문도는 검색 횟수도 신경 써줘야한다.
+*for (i =0; i<MAX_AVARTAR;++i)
+{
+	if(RANGE >= Distance(avartar[i],me))
+		SendState(i,me);
+}
+
+*Zone(용어는 게임마다 다름)
+-효율적인 검색의 기본
+-전체 월드를 큰 논리적인 단위로 쪼개기
+	1. 보통 차원이 다르거나, 바다가 가로막고 있거나...
+	2. Seemless하지 않아서 이동 시 로딩이 필요
+-대륙, 월드, 인던,
+	1.서로 다른 월드에 있으면 서로 볼일이 없음
+-Sector(용어는 게임마다 다름)
+	1.Zone도 너무 크다. 더 줄이자
+	2. Cluster 라고도 함.
+	3. 같은 Sector에 있는 클라이언트에게만 Broadcasting함
+	4. Sector 경계에 있을 경우 주변 4개의 Sector만 검색해서 BroadCasting함
+*Sector는 서버 내부에서 검색 효율성을 위해 도입한 개념
+1. 자기 주변에 있는 object의 리스트를 빨리 얻어내기 위해 사용
+2. Sector의 크기는 최대 시야에 비례한다. 즉 적당한 개수의 Sector검색으로 시야 범위 내의 모든 object를 찾을수 있어야한다.
+	1.Sector검색은 락을 걸고 해야함.
+	2.너무 크면 : 시야 붐위 밖의 개체가 많이 검색됨 -> 병렬성이 떨어진다 (여러 스레드가 한 섹터를 공유)
+	3. 너무 작으며 : 많은 Sector를 검색해야한다 -=> 이동시 잦은 섹터 변경 오버헤드
+*클라이언트와는 아무런 상관이 없는 개념이다.
+
+*Sector마다 Sector에 존재하는 object의 목록을 관리하는 자료구조가 존재한다. 
+	- g_ObjectListSector[Row][Col]
+*모든 Object의 이동/생성/소멸 시 자신이 속한 Sector의 Object 목록을 업데이트 해야한다.
+
+*멀티 쓰레드 자료구조 필요
+
+*모든 플레이어는 시야라는 개념을 갖고 있다.
+	-시야 밖의 object에 대한 정보는 클라이언트에 전송되지 않는다.
+	-서버 성능 향상 및 네트워크 전송량 감소에 많은 도움을 준다.
+
+
+*모든 object의 이동시 시야 정보를 업데이트 해줘야한다.
+-ViewList라는 객체를 모든 플레이어가 관리한다.
+
+-ViewList는 클라이언트 측의 객체의 생성(putOBJ)와 소멸(removeOBJ)의 기준이 된다.
+
+	1. 단순히 거리만으로 판단할 경우 서로 동시에 움직이므로 PUT과 REMOVE가 어긋날 수 도 있다.
+
+
+
+*어긋남 
+-이동과 시야 리스트 업데이트는 Atomic 하지 않음
+
+*이동시 시야처리
+-시야 리스트 업데이트
+-시야에서 사라진 player에게 removeObj 전송
+-새로 시야에 들어온 playerㅇ게 putObj 전송
+-기존 시야리스트에 있는 obj에게 moveObj전송
+
+*이동시 시야처리 순서
+-Sector 검색 후 NearList 생성
+-Near의 모든 객체에 대해 
+	*viewList에 없으면 
+	1.viewlist에 추가
+	2.나<- putObj(상대)
+	3.상대 viewList에 있으면
+
+
+*viewlist는 공유객체여서 읽고 쓸때는  lock을 걸어야함 ->  상대방 viewlist에 lock을 걸게되면 deadlock이 걸리니까 removeID라는 지역변수에 잠시 넣어놓고 검색이 끝나고 LOCK하게 처리해야함
+
+*최적화
+-ViewList의 copy
+	1. lock이 걸려 있는 시간을 최소화하여 lock으로 인한 성능 저하 최소화
+-RemoveID List 
+	1.이중 lock으로 인한 DeadLock 방지
+
+-일반적인 mutex lock 대신 RWLOCK을 사요할것 -> update할때는 update lock을 걸고 x,y,z위치 좌표를 update한다. read할때는 readlock을 걸고 x,y,z 를 읽는다.  
+	1.Read Operation 을 많이 사용하고 있음
+
+
+-3d 게임은 시야가 동그랗고 2D게임은 시야가 네모남
+
+/////////////////////////////
+집가서 추가해야함
+
+#include <set>
+#define VIEW_RADIUS	3		//서로 세칸 안에 있으면 보이는것
+
+
+struct SOCKETINFO
+{
+	unordered_set<int> viewList;
+}
+
+
+
+void Initialize()
+{
+	
+}
+
+void Disconnec(int id)
+{
+	if(false == clients[i].connected)continue;
+	if(clients[i].viewlist.count(id) != 0)
+	{
+		send_remove_player_packet(i,id);
+	}
+	closesocket(clients[id].socket);
+	clients[id].viewlist.clear();
+	clients[id].connected = false;
+}
+
+bool Is_Near_Object(int a, int b)
+{
+	if(VIEW_RADIUS < abs(clients[a].x - clients[b].x))
+		return false;
+	if(VIEW_RADIUS < abs(clients[a].y - clients[b].y))
+		return false;
+
+	return true;			
+}
+
+void ProcessPaacket()
+
+{
+	clients[id].x = x;
+	
+	unordered_set<int> old_viewList = clients[id].viewlist;			// 이동전에 뷰리스트			
+	unordered_set<int> new_viewList;			// 이동 후에 뷰 리스트
+	
+	for(int i =0;i<MAX_USER;++i)
+	{
+		if((clients[i].connected == true) && (Is_Near_Object(id,i) == true) && (i != id))
+		{
+			new_viewList.insert(i);
+		}
+	}
+
+	for(auto cl : new_viewList)
+	{
+		if( oldViewList.count(cl) != 0)
+		{
+			if(clients[cl].viewList.count(id) !=0)
+				send_pos_packet(cl,id);
+			else{
+				clients[cl].viewList.insert(id);
+				send_put_playerpacket(cl,id);
+			}
+		}
+		else
+		{	
+			clients[id].viewList.insert(cl);
+			send_put_player_pakcet(id,cl);
+			if( clients[cl].viewList.count(id) != 0)
+			{
+				send_pos_pakcet(cl,id);
+			}
+			else
+			{
+				clients[cl].viewList.insert(id);
+				send_put_player_packet(cl,id);		
+			}
+			
+		}	
+	}
+	
+	for(auto cl : old_viewList)
+	{
+		if(new_viewList.count(cl) != 0) continue;
+		
+		
+		send_remove_player_packet(id,cl);
+		send_remove_player_packet(cl,id);
+
+	}
+
+}}
+

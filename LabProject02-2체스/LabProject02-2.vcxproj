@@ -146,6 +146,7 @@
     <Text Include="ReadMe.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\과제4 서버\Server\Server\Protocol.h" />
     <ClInclude Include="GameFramework.h" />
     <ClInclude Include="LabProject02-2.h" />
     <ClInclude Include="Network.h" />

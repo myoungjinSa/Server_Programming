@@ -42,6 +42,9 @@
     <ClInclude Include="Network.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
+    <ClInclude Include="..\과제4 서버\Server\Server\Protocol.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">

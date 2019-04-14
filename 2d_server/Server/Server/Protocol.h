@@ -6,8 +6,8 @@
 
 
 #define MAX_USER			10
-#define WORLD_WIDTH			8
-#define WORLD_HEIGHT		8
+#define WORLD_WIDTH			100
+#define WORLD_HEIGHT		100
 
 #define MAX_BUFFER        1024
 #define SERVER_PORT			3500
