@@ -11,8 +11,8 @@
 
 
 #define MAX_USER			10
-#define WORLD_WIDTH			15000
-#define WORLD_HEIGHT		10000
+#define WORLD_WIDTH			100
+#define WORLD_HEIGHT		100
 
 #define MAX_BUFFER        1024
 #define SERVER_PORT			3500
@@ -31,17 +31,13 @@ constexpr char SC_PUTPLAYER = 0x02;
 constexpr char SC_REMOVE_PLAYER = 0x03;
 constexpr char SC_POS = 0x04;
 
-constexpr int FRAME_WIDTH = 1200;
-constexpr int FRAME_HEIGHT = 800;
 
-constexpr int fWidthStep = FRAME_WIDTH / 8;
-constexpr int fHeightStep = FRAME_HEIGHT / 8;
 
 constexpr int WORLDX = 100;
 constexpr int WORLDY = 100;
 
-constexpr float fStartX = ( FRAME_WIDTH / 8 ) * 4;
-constexpr float fStartY = (FRAME_HEIGHT / 8) * 4;
+constexpr float fStartX = 4;
+constexpr float fStartY = 4;
 #pragma pack(push,1)
 
 typedef struct POSITION
@@ -100,7 +96,7 @@ struct SC_PACKET_PUT_PLAYER
 	char type;
 	char id;
 	char playerCount;
-	short x,y;
+	char x,y;
 };
 
 struct SC_PACKET_REMOVE_PLAYER

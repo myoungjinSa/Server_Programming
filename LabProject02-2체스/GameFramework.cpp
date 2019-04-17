@@ -258,7 +258,7 @@ void CGameFramework::CreateDirect2DDevice()
 	m_pd2dfxBitmapSource->SetValue(D2D1_BITMAPSOURCE_PROP_WIC_BITMAP_SOURCE, m_pwicFormatConverter);
 	
 	//이미지 크기 조정
-	D2D1_VECTOR_2F vec{ 0.135f,0.145f };
+	D2D1_VECTOR_2F vec{ 0.1f,0.145f };
 	m_pd2dfxBitmapSource->SetValue(D2D1_BITMAPSOURCE_PROP_SCALE, vec);
 
 	if (pwicBitmapDecoder) pwicBitmapDecoder->Release();
@@ -1071,7 +1071,7 @@ void CGameFramework::FrameAdvance()
 		
 		DrawChessBoard();
 
-		D2D1_POINT_2F pl = { (FRAME_WIDTH / 8) * 4, (FRAME_HEIGHT / 8) * 4 };
+		D2D1_POINT_2F pl = { (FRAME_WIDTH / 11) * 5, (FRAME_HEIGHT / 11) * 5 };
 		
 		m_pd2dDeviceContext->DrawImage(m_pd2dfxBitmapSource, &pl);
 		std::cout << "id-" << (int)m_player.m_id << " 위치" << m_player.m_pos.x << "," << m_player.m_pos.y<<"\n";

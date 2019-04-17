@@ -1,8 +1,6 @@
 #include "TestServer.h"
-#include <iostream>
-#include <map>
 
-
+mutex g_mutex;
 CServerFramework::CServerFramework()
 {
 }
@@ -33,8 +31,10 @@ void CServerFramework::Initialize()
 {
 	for(auto& cl : clients)
 	{
-		cl.conneceted = false;
+		cl.connected = false;
+		cl.viewList.clear();
 	}
+
 }
 
 
@@ -44,10 +44,9 @@ char CServerFramework::GetNewId()
 	{
 		for (int i = 0; i < MAX_USER; ++i)
 		{
-			if (clients[i].conneceted == false)
+			if (clients[i].connected == false)
 			{
-				clients[i].conneceted = true;
-				m_playerCount = i + 1;
+				clients[i].connected = true;
 				return i;
 			}
 		}
@@ -121,7 +120,7 @@ void CServerFramework::Send_Put_Player_Packet(char to,char object)
 	Send_Packet(to, reinterpret_cast<char*>(&packet));
 }
 
-void CServerFramework::Send_Pos_Packet(char to, char object,char data)
+void CServerFramework::Send_Pos_Packet(char to, char object)
 {
 	SC_PACKET_POS packet;
 
@@ -131,7 +130,7 @@ void CServerFramework::Send_Pos_Packet(char to, char object,char data)
 
 	packet.x = clients[object].x;
 	packet.y = clients[object].y;
-	packet.dir = data;
+	
 
 	Send_Packet(to, reinterpret_cast<char*>(&packet));
 }
@@ -222,67 +221,183 @@ void CServerFramework::Process_Packet(char id,char* buf)
 	CS_PACKET_UP * packet = reinterpret_cast<CS_PACKET_UP*>(buf);
 
 
-	short x = clients[id].x;
-	short y = clients[id].y;
-	char dir = CS_IDLE;
-
+	char x = clients[id].x;
+	char y = clients[id].y;
+	
 	switch(packet->type)
 	{
 	case CS_UP:
-		y -= fHeightStep;
-		dir = CS_UP;
+		--y;
+		//dir = CS_UP;
 		std::cout << "UP" << "\n";
-		if (y < 0) y = 0;
+		if (y < 0)
+			y = 0;
 		break;
 	case CS_DOWN:
-		y += fHeightStep;
-		dir = CS_DOWN;
+		++y;
+		//dir = CS_DOWN;
 		std::cout << "DOWN" << "\n";
-		if (y > WORLD_HEIGHT) y = WORLD_HEIGHT;
+		if (y >= WORLD_HEIGHT) 
+			y = WORLD_HEIGHT-1;
 		break;
 
 	case CS_LEFT:
-		x -= fWidthStep;
-		dir = CS_LEFT;
+		//x -= fWidthStep;
+		if (x > 0)
+			x--;
+		//dir = CS_LEFT;
 		std::cout << "LEFT" << "\n";
-		if (x < 0) x = 0;
+		
 		break;
 	case CS_RIGHT:
-		x += fWidthStep;
-		dir = CS_RIGHT;
+		
+		//dir = CS_RIGHT;
 		std::cout << "RIGHT" << "\n";
-		if (x > WORLD_WIDTH - 1) x++;
+		if (x < WORLD_WIDTH - 1)
+			x++;
 		break;
 	default:
 		cout << "Unknown Packet: Type error\n";
 		while (true);
 	}
+	
+	g_mutex.lock();
 	clients[id].x = x;
 	clients[id].y = y;
 
-	for(int i=0;i<MAX_USER ;++i)
-	{
-		if (clients[i].conneceted == true) {
+	
+	unordered_set<int> old_viewList = clients[id].viewList;
+	unordered_set<int> new_viewList;
 
-			Send_Pos_Packet(i, id,dir);
-			Send_Pos_Packet(id, i,dir);
+	for(int i =0;i<MAX_USER;++i)
+	{
+		if((clients[i].connected == true)&&(Is_Near_Object(id,i) == true) && (i!=id))
+		{
+			new_viewList.insert(i);
+		}
+
+	}
+		// Put Object
+	// 나와 근처에 있는 오브젝트들에 대해
+	for (auto client : new_viewList)
+	{
+		// 상대와 나에게 각각 지워주어야함
+		if (old_viewList.count(client) == 0)
+		{
+			clients[id].viewList.insert(client);
+			Send_Put_Player_Packet(id, client);
+
+			if (clients[client].viewList.count(id) != 0)
+			{
+				Send_Pos_Packet(client, id);
+				
+			}
+			else
+			{
+				clients[client].viewList.insert(id);
+				Send_Put_Player_Packet(client, id);
+			}
+		}
+
+		// old_viewList에 new_viewList에 있는 클라ID가 있을 때,
+		else if (old_viewList.count(client) != 0)
+		{
+			// viewList에 해당하는 id가 있으면,
+			if (clients[client].viewList.count(id) != 0)
+			{
+				Send_Pos_Packet(client, id);
+			}
+			// viewList에 해당하는 id가 없으면,
+			else
+			{
+				clients[client].viewList.insert(id);
+				Send_Put_Player_Packet(client, id);				
+			}
 		}
 	}
+	
+	// 안보이는 플레이어 ID 리스트
+   unordered_set<int> removedIDList;
+   vector<int> removeVecID;
+   for (int i = 0; i < MAX_USER; ++i)
+   {
+      // i에 해당하는 클라가 접속해있고, 
+      // 나하고, 상대하고 근처에 없고, 
+      // 또한 나하고 id하고 같지 않을 때,
+      if (clients[i].connected == true
+         && Is_Near_Object(id, i) == false
+         && i != id)
+      {
+         removedIDList.insert(i);
+		 removeVecID.emplace_back(i);
+
+      }
+   }
+
+   for(const int& i: removeVecID)
+   {
+	   if (i == id)
+		   continue;
+	   if(removedIDList.count(i)!=0)
+	   {
+		   old_viewList.erase(i);
+
+		   Send_Remove_Player_Packet(id, i);
+
+		   if(clients[i].viewList.count(id)!=0)
+		   {
+			   clients[i].viewList.erase(id);
+			   Send_Remove_Player_Packet(i, id);
+		   }
+	   }
+   }
+   removeVecID.clear();
+
+
+   clients[id].viewList = old_viewList;
+
+   g_mutex.unlock();
+   
+   for (int i = 0; i < MAX_USER; ++i)
+   {
+	   if (clients[i].connected == true) {
+
+		   Send_Pos_Packet(i, id );
+	
+	   }
+   }
+	
 }
 
-
+bool CServerFramework::Is_Near_Object(int a, int b)
+{
+	if (VIEW_RADIUS < abs(clients[a].x - clients[b].x))
+		return false;
+	if (VIEW_RADIUS < abs(clients[a].y - clients[b].y))
+		return false;
+	return true;
+}
 void CServerFramework::Disconnect(int id)
 {
+	g_mutex.lock();
 	for(int i=0;i<MAX_USER;++i)
 	{
-		if (clients[i].conneceted == false) 
+		if (clients[i].connected == false) 
+		{
+			continue;
+			//Send_Remove_Player_Packet(i, id);
+		}
+		if(clients[i].viewList.count(id) != 0)
 		{
 			Send_Remove_Player_Packet(i, id);
 		}
 
 	}
+	
 	closesocket(clients[id].socket);
-	clients[id].conneceted = false;
+	clients[id].viewList.clear();
+	clients[id].connected = false;
+	g_mutex.unlock();
 }
 
 void CServerFramework::Do_Accept()
@@ -306,41 +421,41 @@ void CServerFramework::Do_Accept()
 
 		char new_id = GetNewId();
 
-
-	
-		memset(&clients[new_id], 0x00, sizeof(struct SOCKETINFO));
+		//memset(&clients[new_id], 0x00, sizeof(struct SOCKETINFO));
+		
+		//clients[new_id] = new SOCKETINFO;
 		
 		clients[new_id].socket = clientSocket;
 		
-		
 		clients[new_id].overlapped.dataBuffr.len = MAX_BUFFER;
-		clients[new_id].overlapped.dataBuffr.buf = clients[new_id].packet_buf;
+		clients[new_id].overlapped.dataBuffr.buf = clients[clientSocket].packet_buf;
 		clients[new_id].overlapped.is_recv = true;
 		
-
-		clients[new_id].x = fStartX + (fWidthStep * m_playerCount);
-		clients[new_id].y = fStartY + (fHeightStep * m_playerCount);
+		clients[new_id].x = fStartX;
+		clients[new_id].y = fStartY;
 		flags = 0;
-
 		
 		CreateIoCompletionPort(reinterpret_cast<HANDLE>(clientSocket), g_iocp, new_id, 0);
 
-		clients[new_id].conneceted = true;
+		clients[new_id].connected = true;
 
-
+		
 		Send_Login_Packet(new_id);
 		for(int i =0;i<MAX_USER;++i)
 		{
-			if (clients[i].conneceted == false)
+			if (clients[i].connected == false)
 			{
 				continue;
 			}
-			Send_Put_Player_Packet(i, new_id);
+			if (Is_Near_Object(i, new_id) == true)
+			{
+				Send_Put_Player_Packet(i, new_id);
+			}
 		}
 		
 		for(int i=0;i<MAX_USER;++i)
 		{
-			if(clients[i].conneceted == false)
+			if(clients[i].connected == false)
 			{
 				continue;
 			}
@@ -348,7 +463,11 @@ void CServerFramework::Do_Accept()
 			{
 				continue;
 			}
-			Send_Put_Player_Packet(new_id, i);
+			if (Is_Near_Object(new_id, i) == true)
+			{
+				Send_Put_Player_Packet(new_id, i);
+			}
+			
 		}
 		Do_Recv(new_id);
 

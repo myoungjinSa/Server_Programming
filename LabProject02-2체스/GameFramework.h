@@ -73,7 +73,7 @@ private:
 	HWND						m_hWnd = NULL;
 
 	int							m_nWndClientWidth = FRAME_WIDTH;
-	int							m_nWndClientHeight = FRAME_HEIGHT;
+	int							m_nWndClientHeight =  FRAME_HEIGHT;
 
 	IDXGIFactory4				*m_pdxgiFactory = NULL;
 	IDXGISwapChain3				*m_pdxgiSwapChain = NULL;
@@ -135,8 +135,8 @@ private:
 	D2D1_RECT_F					m_rect;
 	Player						m_player;
 	Player						m_others[MAX_USER];
-	const int m_fWidthStep		= FRAME_WIDTH  / 8;
-	const int m_fHeightStep		= FRAME_HEIGHT / 8;
+	const int m_fWidthStep		= FRAME_WIDTH  / 11;
+	const int m_fHeightStep		= FRAME_HEIGHT / 11;
 
 	ID2D1DrawingStateBlock1		*m_pd2dsbDrawingState = NULL;
 	IWICFormatConverter			*m_pwicFormatConverter = NULL;

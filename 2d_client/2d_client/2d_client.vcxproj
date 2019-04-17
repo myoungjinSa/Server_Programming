@@ -19,7 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\iocp_server\iocp_server\protocol.h" />
+    <ClInclude Include="..\..\과제4 서버\Server\Server\Protocol.h" />
     <ClInclude Include="gpdumb1.h" />
   </ItemGroup>
   <ItemGroup>

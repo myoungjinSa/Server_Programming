@@ -15,8 +15,8 @@
 #include <d3d9.h>     // directX includes
 #include "d3dx9tex.h"     // directX includes
 #include "gpdumb1.h"
-#include "..\..\2d_server\Server\Server\Protocol.h"
-
+#include "../../과제4 서버/Server/Server/Protocol.h"
+//#include "../../ser/server/server/Protocol.h"
 #pragma comment (lib, "ws2_32.lib")
 
 // DEFINES ////////////////////////////////////////////////
@@ -27,7 +27,7 @@
 // defines for windows 
 #define WINDOW_CLASS_NAME L"WINXCLASS"  // class name
 
-#define WINDOW_WIDTH    1200   // size of window
+#define WINDOW_WIDTH    800   // size of window
 #define WINDOW_HEIGHT   800
 
 #define	BUF_SIZE				1024
@@ -48,6 +48,7 @@ char buffer[80];                // used to print text
 
 								// demo globals
 BOB			player;				// 플레이어 Unit
+BOB			object[300];
 //BOB			npc[MAX_NPC];      // NPC Unit
 BOB         skelaton[MAX_USER];     // the other player skelaton
 
@@ -58,6 +59,7 @@ BITMAP_IMAGE white_tile;
 #define TILE_WIDTH 65
 
 #define UNIT_TEXTURE  0
+#define OBJECT_TEXTURE 1
 
 SOCKET g_mysocket;
 WSABUF	send_wsabuf;
@@ -81,7 +83,8 @@ void ProcessPacket(char *ptr)
 	{
 	case SC_LOGIN_OK:
 	{
-		SC_PACKET_LOGIN_OK *packet = reinterpret_cast<SC_PACKET_LOGIN_OK*>(ptr);
+		//SC_PACKET_LOGIN_OK *packet = reinterpret_cast<SC_PACKET_LOGIN_OK*>(ptr);
+		SC_PACKET_LOGIN_OK *packet = reinterpret_cast<SC_PACKET_LOGIN_OK*> (ptr);
 
 		g_myid = packet->id;
 
@@ -412,17 +415,35 @@ int Game_Init(void *parms)
 	// now let's load in all the frames for the skelaton!!!
 
 	Load_Texture(L"CHESS2.PNG", UNIT_TEXTURE, 384, 64);
+	
 
 	if (!Create_BOB32(&player, 0, 0, 64, 64, 1, BOB_ATTR_SINGLE_FRAME)) return(0);
 	Load_Frame_BOB32(&player, UNIT_TEXTURE, 0, 2, 0, BITMAP_EXTRACT_MODE_CELL);
 
+	
 	// set up stating state of skelaton
 	Set_Animation_BOB32(&player, 0);
 	Set_Anim_Speed_BOB32(&player, 4);
 	Set_Vel_BOB32(&player, 0, 0);
 	Set_Pos_BOB32(&player, 0, 0);
 
+	Load_Texture(L"bear2.PNG", OBJECT_TEXTURE, 64, 49);
 
+	for (int j = 0 ,k=0; j < 100; j+=8) 
+	{
+		for (int i = 0; i < 100; i+=8)
+		{
+			if (!Create_BOB32(&object[k], 0, 0, 64, 49, 1, BOB_ATTR_SINGLE_FRAME)) return (0);
+			Load_Frame_BOB32(&object[k],OBJECT_TEXTURE, 0, 0, 0, BITMAP_EXTRACT_MODE_CELL);
+
+			//	Set_Animation_BOB32(&object[k], 0);
+			//	Set_Anim_Speed_BOB32(&object[k], 4);
+				//Set_Vel_BOB32(&object[k], 0, 0);
+			object[k].attr |= BOB_ATTR_VISIBLE;
+	
+			Set_Pos_BOB32(&object[k++],i ,  j);
+		}
+	}
 	// create skelaton bob
 	for (int i = 0; i < MAX_USER; ++i) {
 		if (!Create_BOB32(&skelaton[i], 0, 0, 64, 64, 1, BOB_ATTR_SINGLE_FRAME))
@@ -501,6 +522,7 @@ int Game_Shutdown(void *parms)
 
 	// kill skelaton
 	for (int i = 0; i < MAX_USER; ++i) Destroy_BOB32(&skelaton[i]);
+	for (int i = 0; i < 300; ++i) Destroy_BOB32(&object[i]);
 	//for (int i = 0; i < MAX_NPC; ++i)
 	//	Destroy_BOB32(&npc[i]);
 
@@ -536,28 +558,32 @@ int Game_Main(void *parms)
 	g_pSprite->Begin(D3DXSPRITE_ALPHABLEND | D3DXSPRITE_SORT_TEXTURE);
 
 	// draw the background reactor image
-	for (int i = 0; i<10; ++i)
-		for (int j = 0; j<10; ++j)
+	for (int i = 0; i < 11; ++i)
+	{
+		for (int j = 0; j < 11; ++j)
 		{
 			int tile_x = i + g_left_x;
 			int tile_y = j + g_top_y;
-			if ((tile_x <0) || (tile_y<0)) continue;
+			if ((tile_x < 0) || (tile_y < 0)) continue;
 			if (((tile_x >> 2) % 2) == ((tile_y >> 2) % 2))
 				Draw_Bitmap32(&white_tile, TILE_WIDTH * i + 7, TILE_WIDTH * j + 7);
 			else
 				Draw_Bitmap32(&black_tile, TILE_WIDTH * i + 7, TILE_WIDTH * j + 7);
 		}
-	//	Draw_Bitmap32(&reactor);
+		//	Draw_Bitmap32(&reactor);
+	}
+
+
 
 	g_pSprite->End();
 	g_pSprite->Begin(D3DXSPRITE_ALPHABLEND | D3DXSPRITE_SORT_TEXTURE);
 
-
+	
 	// draw the skelaton
 	Draw_BOB32(&player);
 	for (int i = 0; i<MAX_USER; ++i) Draw_BOB32(&skelaton[i]);
 	//for (int i = NPC_START; i<MAX_NPC; ++i) Draw_BOB32(&npc[i]);
-
+	for (int i = 0; i < 300;++i) Draw_BOB32(&object[i]);
 	// draw some text
 	wchar_t text[300];
 	wsprintf(text, L"MY POSITION (%3d, %3d)", player.x, player.y);
