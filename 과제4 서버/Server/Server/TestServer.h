@@ -1,26 +1,40 @@
 #pragma once
 
+
+#pragma comment(lib, "winmm.lib")
+#pragma comment(lib, "Ws2_32.lib")
+
+
 #include <iostream>
 #include <map>
+#include <queue>
 #include <unordered_set>
 #include <mutex>
+
+
 #include "Protocol.h"
 
 #define VIEW_RADIUS		3  //서로 3칸안에 있으면 보이는것
+#define MOVE_RADIUS		7  //NPC는 4칸 안에 있으면 움직여야함.
 
 using namespace std;
 
 #include <winsock2.h>
 
-#pragma comment(lib, "Ws2_32.lib")
 
 
+enum class COMMAND
+{
+	SEND =0 ,
+	RECV ,
+	MOVE
+};
 struct OVERLAPPED_EX
 {
 	WSAOVERLAPPED overlapped;				//서로 충돌이일어나기 때문에 소켓마다 OVERLAPPED 구조체가 있어야함.
 	WSABUF dataBuffr;
 	char messageBuffer[MAX_BUFFER];
-	bool is_recv;
+	COMMAND command;
 };
 
 struct SOCKETINFO				//소켓의 정보
@@ -34,23 +48,66 @@ struct SOCKETINFO				//소켓의 정보
 	
 	int prev_size;
 	float x, y;
-
+	
+	//mutex view_mutex;
 	unordered_set<int> viewList;
+	unordered_set<int> npcViewList;
 	//POS		position;
 
 	//HP,플레이어 정보는 이쪽에 들어가면됨.
 };
 
 
+
+class NPC
+{
+	int x, y;
+	double timer;
+};
+
+class USER : public NPC
+{
+	SOCKETINFO socket;
+
+};
+
+	
+
 class CServerFramework
 {
 private:
 	
 	//이 구조체는 여러 쓰레드가 읽기,쓰기 동작을 모두 하기 때문에 LOCK이 필요함.
-	SOCKETINFO clients[MAX_USER];			//소켓마다 어떤 소켓정보를 쓰는지 매핑이 되어야함.
+
+		//소켓마다 어떤 소켓정보를 쓰는지 매핑이 되어야함.
+	
+	//SOCKETINFO clients[MAX_USER];			//소켓마다 어떤 소켓정보를 쓰는지 매핑이 되어야함.
+	//NPC  npcs[NUM_NPC];
+	
+//bool CServerFramework::Is_Near_Object_npc(int a, int b)
+//{
+//	if (VIEW_RADIUS < abs(npcs[a].x - npcs[b].x))
+//		return false;
+//	if (VIEW_RADIUS < abs(npcs[a].y - npcs[b].y))
+//		return false;
+//	return true;
+//}
+
+	//아래와 같은 선언은 생산성이 높음
+
+	//NPC* clients[NPC_ID_START + NUM_NPC];
+
+//	bool CServerFramework::Is_Near_Object(int a, int b)
+//{
+	//	if (VIEW_RADIUS < abs(clients[a]->x - clients[b]->x))
+	//		return false;
+	//	if (VIEW_RADIUS < abs(clients[a]->y - clients[b]->y))
+	//		return false;
+	//	return true;
+//}
 
 	SOCKET m_listen_Socket;
-
+	
 public:
 
 	CServerFramework();
@@ -59,29 +116,37 @@ public:
 	void Error_Display(char *msg, int err_no);
 	void Initialize();
 
-	char GetNewId();
+	int GetNewId();
 	void Send_Packet(int key, char *packet);
-	void Send_Remove_Player_Packet(char to, char id);
-	void Send_Login_Packet(char to);
-	void Send_Put_Player_Packet(char to, char object);
-	void Send_Pos_Packet(char to, char object);
+	void Send_Remove_Player_Packet(int to, int id);
+	void Send_Login_Packet(int to);
+	void Send_Put_Player_Packet(int to, int object);
+	void Send_Pos_Packet(int to, int object);
+	void Send_Npc_Put_Packet(int to,int object);
+	void Send_Npc_Pos_Packet(int to, int object);
+	void Send_Npc_Remove_Packet(int to, int object);
+
 
 	void Network_Initialize();
-	void Do_Recv(char id);
+	void Do_Recv(int id);
 	
 	bool Is_Near_Object(int a, int b);
+	bool Is_Move_Npc(int a, int b);
 
-	void Process_Packet(char id, char* buf);
+	void Process_Packet(int id, char* buf);
 
 	void Disconnect(int id);
-		
+	
+	void Move_NPC(int npc);
+	void Add_Timer(int id,COMMAND c, int sleepTime);
+	void Timer_Thread();
 	void Worker_Thread();
 	void Do_Accept();
 
 public:
 	HANDLE g_iocp;		//g_iocp는 여러 쓰레드가 읽기 동작만 하기 때문에 mutex가 필요없다
 	unsigned int m_playerCount;
-	
+	priority_queue<int,vector<int>> pq;
 };
 
 //void Worker_Thread();

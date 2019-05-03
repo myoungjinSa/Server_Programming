@@ -12,7 +12,7 @@
 						-> key는 소켓의 이름,인덱스 -> key를가지고 엑세스함
 						->IOCP에는 소켓 핸들뿐 아니라 파일 핸들도 있을수 있기 때문에 KEY가 필요함
        10. 서버 프로그램마다 IOCP커널객체는 딱 하나이다. 
-       11스레드는 프로그래머가 만들어서 IOCP 스레드풀에 넣어줘야 함.
+       11. 스레드는 프로그래머가 만들어서 IOCP 스레드풀에 넣어줘야 함.
        12. GetQueuedCompletionStatus(hIocp,this_thread) -> 실행하고있는 스레드 자기 자신을 IOCP 스레드 풀에 등록되서 여기서 멈춰서 대기상태가 됨.
        13. OVERLAPPEDIO의 SEND,RECV와 동일하다. -> 단 멀티스레드 CALLBACK
        14. CALLBACK함수 등록이 없다. 
@@ -21,9 +21,9 @@
 
 
 -PostQueueCompletionStauts -> GetQueueCompletionStatus의 반대
-			->패킷 주고 받는거랑 아무런상관 없음
-			->서버 죽이는 용도로 딱
-			-> 별로 쓸일 없음
+			  ->패킷 주고 받는거랑 아무런상관 없음
+			  ->서버 죽이는 용도로 딱
+			  -> 별로 쓸일 없음
  			
 
 

@@ -1,0 +1,61 @@
+*Timer
+
+-타이머 	-1. 성능
+	-2. 실시간 동작	->빠른 동작
+			->실제 시간
+
+	-3. 각종 이벤트 구현
+	-4. 타이밍에 맞춘 동작 -> 캐스팅 타임, 쿨타임,이동,마법 시전하는데 걸리는 시간,hp회복 등
+
+
+-속도 = 거리 / 시간
+
+-시간 = 시간 차이 -> 프레임이 빨리 움직이면 조금씩 움직이고, 프레임이 느리게 움직이면 많이 움직이고
+
+
+-게임 서버에서는 매 프레임마다 AI(Finite State Machine)을 동작하게 할 수 없다.
+
+-게임프로그래밍이 일반 프로그래밍과 다른 이유 
+-> 실시간, 다중 처리가 가능해야함,
+
+
+*게임 서버가 하는일 -> 1. Packet 처리
+		  -> 2. AI
+
+*Busy Waiting -> loop를 돌면서 매번 if 검사 -> cpu 낭비
+
+ 
+*main()
+{
+	accept_thread
+	worker_thread
+	AI_thread
+} 
+
+
+addTimer() -> 타이머 이벤트 큐(우선 순위 큐)에다가 이벤트를 집어넣는 일
+*우선 순위 -> 넣은 순서가 아닌 우선 순위대로 sort해서 우선순위가 가장 높은것 먼저-> 우선순위 ()
+
+*우선 순위 -> 시간 복잡도 : pop : O(1) 
+			push : O(logn)
+
+*TimerThread 에서 할일
+ 1. 모든 AI
+ 2. 이동(배열에 위치 때려놓고 1초마다 하나하나씩 배열의 위치를 읽고 이동), 길찾기(플레이어가 때렸을 때만 )등
+
+*TimerThread 의 과부화 -> 서버 랙
+
+*실제 작업은 worker thread 에 넘겨야 함.
+
+*모든 시간이 걸리는 작업은 workerThread 에 넘겨야함.
+- TimerThread와 workerThread의 부하 균형을 찾기가 힘든다.
+- TimerThread가 하는 모든 시간이 걸리는 작업은 workerThread에 넘겨야함.
+- TimerThread에서의 ProcessEvent에서 cpu를 잡아먹으면 안됨.
+
+*PostQueuedCompletionStatus(port,0,id,overlapex);
+
+
+
+
+
+

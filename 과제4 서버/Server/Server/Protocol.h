@@ -11,8 +11,8 @@
 
 
 #define MAX_USER			10
-#define WORLD_WIDTH			100
-#define WORLD_HEIGHT		100
+#define WORLD_WIDTH			800
+#define WORLD_HEIGHT		800
 
 #define MAX_BUFFER        1024
 #define SERVER_PORT			3500
@@ -30,14 +30,20 @@ constexpr char SC_LOGIN_OK = 0x01;
 constexpr char SC_PUTPLAYER = 0x02;
 constexpr char SC_REMOVE_PLAYER = 0x03;
 constexpr char SC_POS = 0x04;
+constexpr char SC_NPC_PUT_PLAYER = 0x05;
+constexpr char SC_NPC_POS = 0x06;
+constexpr char SC_NPC_REMOVE = 0x07;
 
+
+constexpr int NPC_ID_START = 100;
+constexpr int NUM_NPC = 200'000;
 
 
 constexpr int WORLDX = 100;
 constexpr int WORLDY = 100;
 
-constexpr float fStartX = 4;
-constexpr float fStartY = 4;
+constexpr float fStartX = 10;
+constexpr float fStartY = 6;
 #pragma pack(push,1)
 
 typedef struct POSITION
@@ -87,34 +93,55 @@ struct SC_PACKET_LOGIN_OK
 {
 	char size;
 	char type;
-	char id;
+	int id;
 };
 
 struct SC_PACKET_PUT_PLAYER
 {
 	char size;
 	char type;
-	char id;
+	int id;
 	char playerCount;
-	char x,y;
+	short x,y;
 };
 
 struct SC_PACKET_REMOVE_PLAYER
 {
 	char size;
 	char type;
-	char id;
+	int id;
 };
 
 struct SC_PACKET_POS
 {
 	char size;
 	char type;
-	char id;
+	int id;
 	char dir;
 	short x, y;
 };
 
+struct SC_PACKET_NPC_PUT_PLAYER
+{
+	char size;
+	char type;
+	int id;
+	short x, y;
+};
+struct SC_PACKET_NPC_POS
+{
+	char size;
+	char type;
+	int id;
+	short x, y;
+};
+
+struct SC_PACKET_NPC_REMOVE
+{
+	char size;
+	char type;
+	int id;
+};
 #pragma pack(pop)
 
 

@@ -59,6 +59,7 @@ Script 언어로 npc 스토리 구현
 	2. Cluster 라고도 함.
 	3. 같은 Sector에 있는 클라이언트에게만 Broadcasting함
 	4. Sector 경계에 있을 경우 주변 4개의 Sector만 검색해서 BroadCasting함
+
 *Sector는 서버 내부에서 검색 효율성을 위해 도입한 개념
 1. 자기 주변에 있는 object의 리스트를 빨리 얻어내기 위해 사용
 2. Sector의 크기는 최대 시야에 비례한다. 즉 적당한 개수의 Sector검색으로 시야 범위 내의 모든 object를 찾을수 있어야한다.

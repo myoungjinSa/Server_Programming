@@ -1,0 +1,64 @@
+-FRAMEWORK -> 1. network
+	       -> 2. thread
+
+-CONTENTS   -> NPC - 1. 길찾기
+		    - 2. timer
+		    - 3. 지형
+	      -> PLAYER - STATUS
+
+
+*게임에서 많이 사용되는 DB 
+1. CISAM(C Indexed Sequential Access Method)
+	*DB가 아닌 단순한 파일 시스템 - EX > 바람의 나라
+
+2. MySQL                              =>			 Maria DB
+	*Free Software - >Oracle 이 사서 이제는 공짜가 아님 
+	* Simple but fast, 리눅스 운영체제에서 많이 사용
+	* 성능도 나쁘지 않다
+	* 단점 :
+3. MSSQL
+	*MicroSoft, 가장 많이 사용 EX> 리니지
+
+4. Oracle 
+	*장점 : 오라클 경험자 많음 , tool이 많이 있음, 
+	*단점 : 엄청 비쌈 , 수출이 어려움 (퍼블리셔가 비싸서 퇴짜놓음)
+
+5. Memcached 
+	*메모리 DB -DB가느린 이유는 FILE I/O를 하기때문인데 Memcached는 디스크 I/O를 하지 않는 DB임
+	* 이게 디스크IO를 하지 않는게 아니고 메모리에 최대한 많은 용량을 올려놓는거
+
+6. NoSQL
+	*기존에 SQL과 다른 방식인 db
+	*고속 대용량 데이터 베이스
+	* Transaction 처리를 희생하고 속도와 대용량(자료의 분산 저장으로)을 얻음
+	* SQL에서 일부의 기능만 제공을 함. 
+
+
+
+*Redis - 게임회사에서 가장 많이 사용함
+
+요즘은 DB도 용도별로 분리해서 저장하는 경우도 많음
+
+
+*데이터 베이스의 사용
+-게임 서버는 db와 분리가 되어야하기 때문에 = >네트워크를 통한 접속 -> 별도의 컴퓨터에서 db는 동작하기 때문에
+1. Text Based Socket -> string으로 주고 받기 때문에 느리고 오버헤드가 큼
+2. ODBC	-> DB 표준 방식, 호환성과 성능이 좋음
+
+-서버에서는 간단한 쿼리언어만 사용함 - 왜냐하면 복잡한 쿼리언어는 db에서 시간 소요가 크다는 의미랑 같다.
+
+
+*DB를 쓰면 좋은 점
+- 다른 프로그램으로도 데이터를 다룰 수 있다.(EX> GM Tool, 사업부,모바일 클라이언트등의 프로그램에서도 db엑세스를 할 수 있어야해서)
+
+- 각종 툴이나 browser를 사용할 수 있다.
+
+
+
+
+
+
+
+
+
+

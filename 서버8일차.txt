@@ -71,7 +71,7 @@ ARM 	      _asm dmb;
 *메모리 일관성 해결책 -> m_fence를 잘 사용하라 -> 모든 경우의 수를 다 따지고 증명해라
 
 m_fence 대신에 아래 것을 쓰자
-std::atomic_thread_fencd(std::memory order seq cst);
+std::atomic_thread_fence(std::memory order seq cst);
 
 
 

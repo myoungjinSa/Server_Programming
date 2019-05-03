@@ -27,7 +27,7 @@
 // defines for windows 
 #define WINDOW_CLASS_NAME L"WINXCLASS"  // class name
 
-#define WINDOW_WIDTH    800   // size of window
+#define WINDOW_WIDTH    1320   // size of window
 #define WINDOW_HEIGHT   800
 
 #define	BUF_SIZE				1024
@@ -49,6 +49,7 @@ char buffer[80];                // used to print text
 								// demo globals
 BOB			player;				// 플레이어 Unit
 BOB			object[300];
+BOB			npc[NUM_NPC];
 //BOB			npc[MAX_NPC];      // NPC Unit
 BOB         skelaton[MAX_USER];     // the other player skelaton
 
@@ -57,6 +58,7 @@ BITMAP_IMAGE reactor;      // the background
 BITMAP_IMAGE black_tile;
 BITMAP_IMAGE white_tile;
 #define TILE_WIDTH 65
+#define TILE_HEIGHT 65
 
 #define UNIT_TEXTURE  0
 #define OBJECT_TEXTURE 1
@@ -106,11 +108,11 @@ void ProcessPacket(char *ptr)
 			skelaton[id].y = my_packet->y;
 			skelaton[id].attr |= BOB_ATTR_VISIBLE;
 		}
-		else {
-			/*npc[id - NPC_START].x = my_packet->x;
-			npc[id - NPC_START].y = my_packet->y;
-			npc[id - NPC_START].attr |= BOB_ATTR_VISIBLE;*/
-		}
+		//else {
+		//	npc[id - NPC_ID_START].x = my_packet->x;
+		//	npc[id - NPC_ID_START].y = my_packet->y;
+		//	npc[id - NPC_ID_START].attr |= BOB_ATTR_VISIBLE;
+		//}
 		break;
 	}
 	case SC_POS:
@@ -118,8 +120,8 @@ void ProcessPacket(char *ptr)
 		SC_PACKET_POS *my_packet = reinterpret_cast<SC_PACKET_POS *>(ptr);
 		int other_id = my_packet->id;
 		if (other_id == g_myid) {
-			g_left_x = my_packet->x - 4;						//플레이어의 위치를 기준으로 배경이 스크롤
-			g_top_y = my_packet->y - 4;
+			g_left_x = my_packet->x - 10;						//플레이어의 위치를 기준으로 배경이 스크롤
+			g_top_y = my_packet->y - 6;
 			player.x = my_packet->x;
 			player.y = my_packet->y;
 		}
@@ -127,10 +129,10 @@ void ProcessPacket(char *ptr)
 			skelaton[other_id].x = my_packet->x;
 			skelaton[other_id].y = my_packet->y;
 		}
-		else {
-			//npc[other_id - NPC_START].x = my_packet->x;
-			//npc[other_id - NPC_START].y = my_packet->y;
-		}
+		//else {
+		//	npc[other_id - NPC_ID_START].x = my_packet->x;
+		//	npc[other_id - NPC_ID_START].y = my_packet->y;
+		//}
 		break;
 	}
 
@@ -144,9 +146,48 @@ void ProcessPacket(char *ptr)
 		else if (other_id < MAX_USER) {
 			skelaton[other_id].attr &= ~BOB_ATTR_VISIBLE;
 		}
-		else {
-		//	npc[other_id - NPC_START].attr &= ~BOB_ATTR_VISIBLE;
+		//else {
+		//	npc[other_id - NPC_ID_START].attr &= ~BOB_ATTR_VISIBLE;
+		//}
+		break;
+	}
+	case SC_NPC_PUT_PLAYER:
+	{	
+		SC_PACKET_NPC_PUT_PLAYER *my_packet = reinterpret_cast<SC_PACKET_NPC_PUT_PLAYER*>(ptr);
+		int id = my_packet->id;
+		if(id< NUM_NPC && id >= NPC_ID_START)
+		{
+			npc[id].x = my_packet->x;
+			npc[id].y = my_packet->y;
+			npc[id].attr |= BOB_ATTR_VISIBLE;	
 		}
+
+		break;
+	}
+	case SC_NPC_POS:
+	{
+		SC_PACKET_NPC_POS * my_packet = reinterpret_cast<SC_PACKET_NPC_POS*>(ptr);
+		int id = my_packet->id;
+		if(id< NUM_NPC && id >= NPC_ID_START)
+		{
+			npc[id].x = my_packet->x;
+			npc[id].y = my_packet->y;
+		}
+	
+		break;
+	}
+
+	case SC_NPC_REMOVE:
+	{
+		SC_PACKET_NPC_REMOVE* my_packet = reinterpret_cast<SC_PACKET_NPC_REMOVE*>(ptr);
+		int id = my_packet->id;
+
+		if(id< NUM_NPC && id >= NPC_ID_START)
+		{
+			npc[id].attr &= ~BOB_ATTR_VISIBLE;
+		}
+
+
 		break;
 	}
 	/*
@@ -404,12 +445,12 @@ int Game_Init(void *parms)
 	Load_Image_Bitmap32(&black_tile, L"CHESSMAP.BMP", 0, 0, BITMAP_EXTRACT_MODE_ABS);
 	black_tile.x = 69;
 	black_tile.y = 5;
-	black_tile.height = TILE_WIDTH;
+	black_tile.height = TILE_HEIGHT;
 	black_tile.width = TILE_WIDTH;
 	Load_Image_Bitmap32(&white_tile, L"CHESSMAP.BMP", 0, 0, BITMAP_EXTRACT_MODE_ABS);
 	white_tile.x = 5;
 	white_tile.y = 5;
-	white_tile.height = TILE_WIDTH;
+	white_tile.height = TILE_HEIGHT;
 	white_tile.width = TILE_WIDTH;
 
 	// now let's load in all the frames for the skelaton!!!
@@ -458,18 +499,18 @@ int Game_Init(void *parms)
 	}
 
 	// create skelaton bob
-	//for (int i = 0; i < MAX_NPC; ++i) {
-		//if (!Create_BOB32(&npc[i], 0, 0, 64, 64, 1, BOB_ATTR_SINGLE_FRAME))
-		//	return(0);
-	//	Load_Frame_BOB32(&npc[i], UNIT_TEXTURE, 0, 4, 0, BITMAP_EXTRACT_MODE_CELL);
+	for (int i = 0; i < NUM_NPC; ++i) {
+		if (!Create_BOB32(&npc[i], 0, 0, 64, 64, 1, BOB_ATTR_SINGLE_FRAME))
+			return(0);
+		Load_Frame_BOB32(&npc[i], UNIT_TEXTURE, 0, 4, 0, BITMAP_EXTRACT_MODE_CELL);
 
 		// set up stating state of skelaton
-		//Set_Animation_BOB32(&npc[i], 0);
-	//	Set_Anim_Speed_BOB32(&npc[i], 4);
-	//	Set_Vel_BOB32(&npc[i], 0, 0);
-	//	Set_Pos_BOB32(&npc[i], 0, 0);
+		Set_Animation_BOB32(&npc[i], 0);
+		Set_Anim_Speed_BOB32(&npc[i], 4);
+		Set_Vel_BOB32(&npc[i], 0, 0);
+		Set_Pos_BOB32(&npc[i], 0, 0);
 		// Set_ID(&npc[i], i);
-//	}
+	}
 
 
 
@@ -558,17 +599,17 @@ int Game_Main(void *parms)
 	g_pSprite->Begin(D3DXSPRITE_ALPHABLEND | D3DXSPRITE_SORT_TEXTURE);
 
 	// draw the background reactor image
-	for (int i = 0; i < 11; ++i)
+	for (int i = 0; i < 20; ++i)
 	{
-		for (int j = 0; j < 11; ++j)
+		for (int j = 0; j < 20; ++j)
 		{
 			int tile_x = i + g_left_x;
 			int tile_y = j + g_top_y;
 			if ((tile_x < 0) || (tile_y < 0)) continue;
 			if (((tile_x >> 2) % 2) == ((tile_y >> 2) % 2))
-				Draw_Bitmap32(&white_tile, TILE_WIDTH * i + 7, TILE_WIDTH * j + 7);
+				Draw_Bitmap32(&white_tile, TILE_WIDTH * i  + 7, TILE_HEIGHT * j + 7 );
 			else
-				Draw_Bitmap32(&black_tile, TILE_WIDTH * i + 7, TILE_WIDTH * j + 7);
+				Draw_Bitmap32(&black_tile, TILE_WIDTH * i + 7, TILE_HEIGHT* j +7);
 		}
 		//	Draw_Bitmap32(&reactor);
 	}
@@ -582,7 +623,7 @@ int Game_Main(void *parms)
 	// draw the skelaton
 	Draw_BOB32(&player);
 	for (int i = 0; i<MAX_USER; ++i) Draw_BOB32(&skelaton[i]);
-	//for (int i = NPC_START; i<MAX_NPC; ++i) Draw_BOB32(&npc[i]);
+	for (int i = 0; i<NUM_NPC; ++i) Draw_BOB32(&npc[i]);
 	for (int i = 0; i < 300;++i) Draw_BOB32(&object[i]);
 	// draw some text
 	wchar_t text[300];

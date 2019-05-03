@@ -6,7 +6,7 @@
 1. 무한 루프를 돌면서 
  * Accept() 호출
  * 새 클라이언트가 접속했으면 클라이언트 정보 구조체를 만든다.
- * IOCP 에 소켓을 등록한다. 
+ * IOCP에 소켓을 등록한다. 
 	-Send/Recv 가 IOCP를 통해 수행됨.
 * WSARecv()를 호출한다. 
 	-Overlapped I/O recv 상태를 항상 유지해야 한다.
@@ -117,12 +117,10 @@ WorkerThread()
 	-길이(byte) + 
 
 
-
 //이 구조체는 RECV할때만 사용함,   	 
 class ClientInfo
 {
 	unsigned char m_recv_packet_buf[MAX_PACKET_SIZE]; -> 패킷이 잘려도 앞부분만 있지 뒷부분이 들어올리는 없다.
-
 }
 
 

@@ -20,7 +20,6 @@ WIN closesocket    : 소켓종료
 
 using namespace std;
 
-
 int main()
 {
 
@@ -29,7 +28,9 @@ int main()
 	wcout.imbue(locale("korean"));			//한글 출력
 	_wsetlocale(LC_ALL, L"korean");
 
+
 	CServerFramework server = CServerFramework();
+
 
 	server.Initialize();
 	
@@ -45,7 +46,11 @@ int main()
 		worker_threads.emplace_back(thread{ &CServerFramework::Worker_Thread ,&server});
 	}
 	thread accept_thread{ &CServerFramework::Do_Accept,&server };
+	thread timer_thread{ &CServerFramework::Timer_Thread,&server };
 
+
+
+	timer_thread.join();
 	accept_thread.join();
 
 	for(auto& th : worker_threads)

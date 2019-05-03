@@ -102,7 +102,7 @@ typedef struct WSAOVERLAPPED
 
 
 
-동기 : RECV -> WAIT -> RETURN -> VOZLTCJFL
+동기 : RECV -> WAIT -> RETURN -> 패킷처리
 비동기 : RECV->RETURN-> 다른일 -> CALLBACK(패킷처리) -> 다른일
 
 *비동기? Non-blocking과의 차이는?
