@@ -11,8 +11,8 @@ d:\server\server_programming\과제5\2019게임서버[화목] 2013180016 사명�
 d:\server\server_programming\과제5\2019게임서버[화목] 2013180016 사명진 숙제 4번\server\server\server\testserver.cpp(563): warning C4244: '인수': 'ULONG'에서 'char'(으)로 변환하면서 데이터가 손실될 수 있습니다.
   server_main.cpp
   코드를 생성하고 있습니다.
-  25 of 606 functions ( 4.1%) were compiled, the rest were copied from previous compilation.
-    2 functions were new in current compilation
+  0 of 606 functions ( 0.0%) were compiled, the rest were copied from previous compilation.
+    0 functions were new in current compilation
     0 functions had inline decision re-evaluated but remain unchanged
   코드를 생성했습니다.
   Server.vcxproj -> D:\Server\Server_Programming\과제5\2019게임서버[화목] 2013180016 사명진 숙제 4번\server\Server\Release\Server.exe

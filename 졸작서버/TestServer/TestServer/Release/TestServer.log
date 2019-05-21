@@ -1,8 +1,0 @@
-﻿  ServerMain.cpp
-  코드를 생성하고 있습니다.
-d:\icebomb_server\testserver\testserver\testserver\testserver.cpp(573): warning C4172: 지역 변수 또는 임시: fLength의 주소를 반환하고 있습니다.
-  7 of 566 functions ( 1.2%) were compiled, the rest were copied from previous compilation.
-    0 functions were new in current compilation
-    1 functions had inline decision re-evaluated but remain unchanged
-  코드를 생성했습니다.
-  TestServer.vcxproj -> D:\ICEBOMB_SERVER\TestServer\TestServer\Release\TestServer.exe

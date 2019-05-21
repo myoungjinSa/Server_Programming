@@ -1,5 +1,4 @@
-﻿  server_main.cpp
-  TestServer.cpp
+﻿  TestServer.cpp
 d:\server\server_programming\과제5\2019게임서버[화목] 2013180016 사명진 숙제 4번\server\server\server\testserver.cpp(119): warning C4244: '=': 'float'에서 'char'(으)로 변환하면서 데이터가 손실될 수 있습니다.
 d:\server\server_programming\과제5\2019게임서버[화목] 2013180016 사명진 숙제 4번\server\server\server\testserver.cpp(120): warning C4244: '=': 'float'에서 'char'(으)로 변환하면서 데이터가 손실될 수 있습니다.
 d:\server\server_programming\과제5\2019게임서버[화목] 2013180016 사명진 숙제 4번\server\server\server\testserver.cpp(134): warning C4244: '=': 'float'에서 'short'(으)로 변환하면서 데이터가 손실될 수 있습니다.
@@ -10,5 +9,5 @@ d:\server\server_programming\과제5\2019게임서버[화목] 2013180016 사명�
 d:\server\server_programming\과제5\2019게임서버[화목] 2013180016 사명진 숙제 4번\server\server\server\testserver.cpp(244): warning C4309: '=': 상수 값이 잘립니다.
 d:\server\server_programming\과제5\2019게임서버[화목] 2013180016 사명진 숙제 4번\server\server\server\testserver.cpp(546): warning C4244: '인수': 'ULONG'에서 'char'(으)로 변환하면서 데이터가 손실될 수 있습니다.
 d:\server\server_programming\과제5\2019게임서버[화목] 2013180016 사명진 숙제 4번\server\server\server\testserver.cpp(563): warning C4244: '인수': 'ULONG'에서 'char'(으)로 변환하면서 데이터가 손실될 수 있습니다.
+  server_main.cpp
   코드를 생성하고 있습니다...
-  Server.vcxproj -> D:\Server\Server_Programming\과제5\2019게임서버[화목] 2013180016 사명진 숙제 4번\server\Server\Debug\Server.exe

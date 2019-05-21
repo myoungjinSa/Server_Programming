@@ -1,6 +1,0 @@
-﻿  ServerMain.cpp
-  TestServer.cpp
-d:\icebomb_server\testserver\testserver\testserver\testserver.cpp(707): warning C4244: '인수': 'ULONG'에서 'char'(으)로 변환하면서 데이터가 손실될 수 있습니다.
-d:\icebomb_server\testserver\testserver\testserver\testserver.cpp(724): warning C4244: '인수': 'ULONG'에서 'char'(으)로 변환하면서 데이터가 손실될 수 있습니다.
-  코드를 생성하고 있습니다...
-  TestServer.vcxproj -> D:\ICEBOMB_SERVER\TestServer\TestServer\Debug\TestServer.exe
