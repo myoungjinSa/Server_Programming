@@ -62,7 +62,7 @@ int main() {
             SQLSetConnectAttr(hdbc, SQL_LOGIN_TIMEOUT, (SQLPOINTER)5, 0);  
   
             // Connect to data source  
-            retcode = SQLConnect(hdbc, (SQLWCHAR*) L"myGame", SQL_NTS, (SQLWCHAR*) NULL, 0, NULL, 0);  
+            retcode = SQLConnect(hdbc, (SQLWCHAR*) L"myGame", SQL_NTS, (SQLWCHAR*) NULL, 0, NULL, 0); // 윈도우 인증이 아닌 ID,PW를 입력해야함.	  
   
             // Allocate statement handle  
             if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {   
@@ -70,7 +70,9 @@ int main() {
   
 			   printf("DB Access ok!!\n");
 
-               retcode = SQLExecDirect(hstmt, (SQLWCHAR *) L"SELECT [ID], [Name], [Level] FROM MyGame ORDER BY 2,1,3", SQL_NTS);  
+			   //아래처럼 sql을 직접 쓰는것보다 Stored Procedure를 사용하는게 낫다
+			   retcode = SQLExecDirect(hstmt, (SQLWCHAR *) L"EXEC get_users", SQL_NTS);  
+               //retcode = SQLExecDirect(hstmt, (SQLWCHAR *) L"SELECT [ID], [Name], [Level] FROM MyGame ORDER BY 2,1,3", SQL_NTS);  
                if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {  
   
                   // Bind columns 1, 2, and 3  

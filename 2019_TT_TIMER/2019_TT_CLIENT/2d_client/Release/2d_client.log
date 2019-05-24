@@ -1,0 +1,4 @@
+﻿  2DClient.cpp
+  gpdumb1.cpp
+MSVCRT.lib(exe_wwinmain.obj) : error LNK2001: _wWinMain@16 외부 기호를 확인할 수 없습니다.
+D:\Server\2019_TT_TIMER\2019_TT_CLIENT\Release\2d_client.exe : fatal error LNK1120: 1개의 확인할 수 없는 외부 참조입니다.
