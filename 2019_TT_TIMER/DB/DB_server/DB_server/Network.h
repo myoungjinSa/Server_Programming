@@ -1,5 +1,5 @@
 #pragma once
-#include "../../../2019_TT/2019_TT/protocol.h"
+
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 
 
@@ -27,6 +27,7 @@ public:
 	void err_display(const char *msg);
 
 
+	void SendConnectResult();
 
 	void ReadPacket();
 	void SendPacket();

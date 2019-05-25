@@ -86,11 +86,26 @@ int     g_top_y = 0;
 
 void SendConnectPacket(const string& id)
 {
-	cs_packet_connect packet;
-	packet.size = sizeof(packet);
-	packet.type = CS_REQUEST_CONNECT;
-	packet.id = stoi(id);
+	//cs_packet_up *my_packet = reinterpret_cast<cs_packet_up *>(send_buffer);
+	//	my_packet->size = sizeof(my_packet);
+	//	send_wsabuf.len = sizeof(my_packet);
+	//	DWORD iobyte;
+	//	if (0 != x) {
+	//		if (1 == x) my_packet->type = CS_RIGHT;
+	//		else my_packet->type = CS_LEFT;
+	//		int ret = WSASend(g_mysocket, &send_wsabuf, 1, &iobyte, 0, NULL, NULL);
+	//		if (ret) {
+	//			int error_code = WSAGetLastError();
+	//			printf("Error while sending packet [%d]", error_code);
+	//		}
+	//	}
+	cs_packet_connect* packet = reinterpret_cast<cs_packet_connect*>(send_buffer);
+	packet->size = sizeof(packet);
+	send_wsabuf.len = sizeof(packet);
+	packet->type = CS_REQUEST_CONNECT;
+	packet->id = stoi(id);
 
+	
 	DWORD iobyte;
 	int ret = WSASend(g_mysocket, &send_wsabuf, 1, &iobyte, 0, NULL, NULL);
 	if (ret) {
@@ -107,6 +122,8 @@ void ProcessPacket(char *ptr)
 	{
 	case SC_REQUEST_ID:
 	{
+
+	
 		sc_packet_request_id *packet = reinterpret_cast<sc_packet_request_id*>(ptr);
 			
 		string id;
@@ -119,12 +136,27 @@ void ProcessPacket(char *ptr)
 
 		break;
 	}
+
 	case SC_LOGIN_OK:
 	{
 		sc_packet_login_ok *packet = 
 			reinterpret_cast<sc_packet_login_ok *>(ptr);
 		g_myid = packet->id;
 		break;
+	}
+	case SC_DENY_LOGIN:
+	{
+		
+		cout << "해당 id가 DB에 없습니다.\n";
+		string id;
+		cout << "접속할 id를 입력하세요" << endl;
+		//
+		cin >> id;
+
+		cout << id;
+		SendConnectPacket(id);
+		break;
+
 	}
 	case SC_PUT_PLAYER:
 	{

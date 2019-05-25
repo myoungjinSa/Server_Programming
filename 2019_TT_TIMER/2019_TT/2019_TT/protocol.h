@@ -9,6 +9,7 @@ constexpr int NUM_NPC = 200000;
 #define WORLD_HEIGHT	800
 
 #define SERVER_PORT		3500
+#define DB_PORT			3501
 
 #define CS_UP		1
 #define CS_DOWN		2
@@ -16,15 +17,23 @@ constexpr int NUM_NPC = 200000;
 #define CS_RIGHT	4
 #define CS_REQUEST_CONNECT 5
 
+
 #define SC_LOGIN_OK			1
 #define SC_PUT_PLAYER		2
 #define SC_REMOVE_PLAYER	3
 #define SC_POS				4
 #define SC_REQUEST_ID		5
-
+#define SC_DENY_LOGIN		6
 
 #define SD_CONNECT			10
+#define SD_POSITION_SAVE    11
+#define DS_CONNECT_RESULT	12
 
+enum QUERY_TYPE
+{
+	DB_CONNECT,
+	DB_POSITION_SAVE
+};
 
 #pragma pack(push ,1)
 
@@ -47,6 +56,11 @@ struct sc_packet_request_id
 	char type;
 };
 
+struct sc_packet_deny_login
+{
+	char size;
+	char type;
+};
 struct sc_packet_login_ok {
 	char size;
 	char type;

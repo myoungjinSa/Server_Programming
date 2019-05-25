@@ -1,7 +1,25 @@
 #include "stdafx.h"
 #include "MainDB.h"
+
 #include "../../../2019_TT/2019_TT/protocol.h"
 
+using namespace std;
+
+MainDB::MainDB()
+	:henv{nullptr},
+	hdbc{nullptr},
+	hstmt{0},
+	retcode{0},
+	userID{0},
+	cbUser_ID{0}
+{
+
+}
+
+MainDB::~MainDB()
+{
+
+}
 void MainDB::Show_error()
 {
 	printf("error\n");
@@ -29,6 +47,7 @@ bool MainDB::Initialize()
 {
 	bool ret = false;
 	setlocale(LC_ALL, "korean");
+	
 
 	retcode = SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &henv);
 
@@ -43,6 +62,71 @@ bool MainDB::Initialize()
 	return ret;
 }
 
+bool MainDB::ConnectID(const wstring& wstr)
+{
+	bool ret = false;
+	retcode = SQLAllocHandle(SQL_HANDLE_DBC, henv, &hdbc);
+	if(retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO)
+	{
+		SQLSetConnectAttr(hdbc, SQL_LOGIN_TIMEOUT, (SQLPOINTER)5, 0);
+		retcode = SQLConnect(hdbc, (SQLWCHAR*)L"server_DB", SQL_NTS, (SQLWCHAR*)L"myoungjin", SQL_NTS, (SQLWCHAR*)L"1234",SQL_NTS);
+
+		if(retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO)
+		{
+			retcode = SQLAllocHandle(SQL_HANDLE_STMT, hdbc, &hstmt);
+
+			printf("DB Access ok!!\n");
+
+			wstring exec(L"EXEC connect_id @id =");
+			wstring res = exec + wstr;
+			//retcode = SQLExecDirect(hstmt, (SQLWCHAR*)L"SELECT [ID] FROM dbo.ID ", SQL_NTS);
+			//retcode = SQLExecDirect(hstmt, (SQLWCHAR*)L"SELECT * FROM dbo.ID  WHERE ID = 32152", SQL_NTS);
+			retcode = SQLExecDirect(hstmt, (SQLWCHAR *)res.c_str(), SQL_NTS);           
+			  	
+			if(retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO)
+			{
+				retcode = SQLBindCol(hstmt, 1, SQL_C_LONG, &userID, 100, &cbUser_ID);
+			//	retcode = SQLBindCol(hstmt, 2, SQL_C_CHAR, szName, NAME_LEN, &cbName);  
+              //  retcode = SQLBindCol(hstmt, 3, SQL_C_LONG, &szLevel, 100 , &cbLevel);   
+  
+				// Fetch and print each row of data. On an error, display a message and exit.  
+                for (int i=0 ; ; i++) {  
+                   retcode = SQLFetch(hstmt);  
+                   if (retcode == SQL_ERROR || retcode == SQL_SUCCESS_WITH_INFO)  
+                      Show_error();  
+                   if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO)
+				   {
+					   ret = true;
+					   break;
+				   }
+                      //wprintf(L"%d: %d %S %d\n", i + 1, userID, szName, szLevel);  
+                   else  
+				   {
+					   ret = false;
+					   break;
+				   }
+                      /*break;*/  
+                }  
+			}
+			else
+			{
+				 HandleDiagnosticRecord(hstmt, SQL_HANDLE_STMT, retcode);
+			 }
+
+			// Process data  
+            if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) 
+			{  
+               SQLCancel(hstmt);  
+               SQLFreeHandle(SQL_HANDLE_STMT, hstmt);  
+            }  
+			 SQLDisconnect(hdbc);  
+		}
+		 SQLFreeHandle(SQL_HANDLE_DBC, hdbc);  
+	}
+	 SQLFreeHandle(SQL_HANDLE_ENV, henv);  
+
+	 return ret;
+}
 void MainDB::Connect_DB()
 {
 	retcode = SQLAllocHandle(SQL_HANDLE_DBC, henv, &hdbc);
@@ -57,7 +141,8 @@ void MainDB::Connect_DB()
 
 			printf("DB Access ok!!\n");
 
-			retcode = SQLExecDirect(hstmt, (SQLWCHAR*)L"SELECT [ID] FROM dbo.ID ", SQL_NTS);
+			//retcode = SQLExecDirect(hstmt, (SQLWCHAR*)L"SELECT [ID] FROM dbo.ID ", SQL_NTS);
+			retcode = SQLExecDirect(hstmt, (SQLWCHAR*)L"SELECT * FROM dbo.ID  WHERE ID = 32152", SQL_NTS);
 		
 			if(retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO)
 			{

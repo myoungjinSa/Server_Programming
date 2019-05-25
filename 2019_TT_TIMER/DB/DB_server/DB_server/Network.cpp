@@ -38,6 +38,17 @@ void Network::err_quit(const char *msg)
 	LocalFree(lpMsgBuf);
 	//exit(1);
 }
+void Network::SendConnectResult()
+{
+	pDSCR = reinterpret_cast<ds_packet_connect_result*>(send_buffer);
+
+	pDSCR->size = sizeof(pDSCR);
+	send_wsabuf.len = sizeof(pDSCR);
+	pDSCR->type = DS_CONNECT_RESULT;
+
+	SendPacket();
+
+}
 
 void Network::ProcessPacket(char *packet)
 {

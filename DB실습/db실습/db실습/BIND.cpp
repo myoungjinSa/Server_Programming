@@ -62,7 +62,7 @@ int main() {
             SQLSetConnectAttr(hdbc, SQL_LOGIN_TIMEOUT, (SQLPOINTER)5, 0);  
   
             // Connect to data source  
-            retcode = SQLConnect(hdbc, (SQLWCHAR*) L"myGame", SQL_NTS, (SQLWCHAR*) NULL, 0, NULL, 0); // 윈도우 인증이 아닌 ID,PW를 입력해야함.	  
+            retcode = SQLConnect(hdbc, (SQLWCHAR*) L"server_DB", SQL_NTS, (SQLWCHAR*) NULL, 0, NULL, 0); // 윈도우 인증이 아닌 ID,PW를 입력해야함.	  
   
             // Allocate statement handle  
             if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {   
@@ -71,14 +71,22 @@ int main() {
 			   printf("DB Access ok!!\n");
 
 			   //아래처럼 sql을 직접 쓰는것보다 Stored Procedure를 사용하는게 낫다
-			   retcode = SQLExecDirect(hstmt, (SQLWCHAR *) L"EXEC get_users", SQL_NTS);  
+			  // retcode = SQLExecDirect(hstmt, (SQLWCHAR *) L"EXEC get_users", SQL_NTS);  
                //retcode = SQLExecDirect(hstmt, (SQLWCHAR *) L"SELECT [ID], [Name], [Level] FROM MyGame ORDER BY 2,1,3", SQL_NTS);  
-               if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {  
+               //retcode = SQLExecDirect(hstmt, (SQLWCHAR *) L"SELECT * FROM dbo.ID WHERE ID = 32152", SQL_NTS);     
+			   
+			   wstring id(L"32152");
+			   wstring s3(L"EXEC connect_id @id =");
+			   wstring res = s3 + id;
+
+			   retcode = SQLExecDirect(hstmt, (SQLWCHAR *)res.c_str(), SQL_NTS);           
+			   
+			   if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {  
   
                   // Bind columns 1, 2, and 3  
                   retcode = SQLBindCol(hstmt, 1, SQL_C_LONG, &userID, 100, &cbUser_ID);  
-                  retcode = SQLBindCol(hstmt, 2, SQL_C_CHAR, szName, NAME_LEN, &cbName);  
-                  retcode = SQLBindCol(hstmt, 3, SQL_C_LONG, &szLevel, 100 , &cbLevel);   
+                 // retcode = SQLBindCol(hstmt, 2, SQL_C_CHAR, szName, NAME_LEN, &cbName);  
+                //  retcode = SQLBindCol(hstmt, 3, SQL_C_LONG, &szLevel, 100 , &cbLevel);   
   
                   // Fetch and print each row of data. On an error, display a message and exit.  
                   for (int i=0 ; ; i++) {  
@@ -86,7 +94,7 @@ int main() {
                      if (retcode == SQL_ERROR || retcode == SQL_SUCCESS_WITH_INFO)  
                         show_error();  
                      if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO)  
-                        wprintf(L"%d: %d %S %d\n", i + 1, userID, szName, szLevel);  
+                        wprintf(L"%d: %d\n", i + 1, userID);  
                      else  
                         break;  
                   }  

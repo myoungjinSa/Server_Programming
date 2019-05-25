@@ -1,4 +1,4 @@
-
+#define _WINSOCK_DEPRECATED_NO_WARNINGS
 #include <iostream>
 #include <thread>
 #include <map>
@@ -6,6 +6,7 @@
 #include <unordered_set>
 #include <queue>
 #include <chrono>
+#include <mutex>
 #include <unordered_map>
 
 
@@ -34,17 +35,20 @@ enum EVENT_TYPE {
 	EV_SEND,
 	EV_MOVE,
 	EV_CHASE,
-	EV_HEAL,
-	EV_DB_CONNECT
+	EV_HEAL
 };
+
+
 struct OVER_EX
 {
 	WSAOVERLAPPED	overlapped;
 	WSABUF			dataBuffer;
 	char			messageBuffer[MAX_BUFFER];
 	EVENT_TYPE		ev;
+	QUERY_TYPE		query;
 	//bool			is_recv;
 };
+
 
 struct SOCKETINFO
 {
@@ -57,12 +61,15 @@ struct SOCKETINFO
 	high_resolution_clock::time_point last_move_time;
 
 	int x, y;
+	int id;
+	int user_id;
+	bool access;
 	unordered_set <int> viewlist;
 };
-
+mutex g_mutex;
 unordered_set<int> clientID;
-
-
+SOCKET g_loginSocket;
+SOCKADDR_IN g_loginServerAddr;
 
 struct T_EVENT {
 	high_resolution_clock::time_point start_time;
@@ -76,11 +83,19 @@ struct T_EVENT {
 };
 
 priority_queue <T_EVENT> timer_queue;
+queue<pair<SOCKETINFO*,QUERY_TYPE>> db_queue;
+
+
 
 SOCKETINFO clients[NPC_ID_START + NUM_NPC];
 
 HANDLE g_iocp;
 
+void ConnectToLoginServer();
+void Destroy();
+void admit_client(int);
+void check_login();
+void SendPacketToLoginServer(queue<pair<SOCKETINFO*, QUERY_TYPE>>& q);
 void add_timer(EVENT_TYPE ev_type, int object,
 	high_resolution_clock::time_point start_time)
 {
@@ -88,6 +103,44 @@ void add_timer(EVENT_TYPE ev_type, int object,
 }
 
 
+
+void err_quit(const char* msg)
+{
+	LPVOID lpMsgBuf;
+
+	FormatMessage
+	(
+		FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,
+		NULL,
+		WSAGetLastError(),
+		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+		(LPTSTR)&lpMsgBuf,
+		0,
+		NULL
+	);
+
+	MessageBox(NULL, (LPCTSTR)lpMsgBuf, (LPCTSTR)msg, MB_ICONERROR);
+	LocalFree(lpMsgBuf);
+}
+
+
+void err_display(const char* msg)
+{
+	LPVOID lpMsgBuf;
+	FormatMessage
+	(
+		FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,
+		NULL,
+		WSAGetLastError(),
+		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+		(LPTSTR)&lpMsgBuf,
+		0,
+		NULL
+	);
+	//cout << msg << (char*)lpMsgBuf << endl;
+
+	LocalFree(lpMsgBuf);
+}
 
 
 void initialize()
@@ -169,6 +222,14 @@ void send_packet(int key, char *packet)
 	}
 }
 
+void send_deny_login_packet(char to)
+{
+	sc_packet_deny_login packet;
+	packet.size = sizeof(packet);
+	packet.type = SC_DENY_LOGIN;
+
+	send_packet(to, reinterpret_cast<char*>(&packet));
+}
 void send_remove_player_packet(char to, int id)
 {
 	sc_packet_remove_player packet;
@@ -232,76 +293,131 @@ void send_pos_packet(int to, int obj)
 
 void process_packet(int id, char * buf)
 {
-	cs_packet_up *packet = reinterpret_cast<cs_packet_up *>(buf);
-
+	
 	short x = clients[id].x;
 	short y = clients[id].y;
-	switch (packet->type) {
+	switch (buf[1]) {
 	case CS_UP:
+	{
+		cs_packet_up *packet = reinterpret_cast<cs_packet_up *>(buf);
 		--y;
 		if (y < 0) y = 0;
 		break;
+	}
 	case CS_DOWN:
+	{
+		cs_packet_down *packet = reinterpret_cast<cs_packet_down *>(buf);
 		++y;
 		if (y >= WORLD_HEIGHT) y = WORLD_HEIGHT - 1;
 		break;
-	case CS_LEFT: if (0 < x) x--; break;
-	case CS_RIGHT: if ((WORLD_WIDTH - 1) > x) x++; break;
+	}
+	case CS_LEFT:
+	{
+		cs_packet_left *packet = reinterpret_cast<cs_packet_left *>(buf);
+		if (0 < x) 
+			x--;
+		break;
+	}
+	case CS_RIGHT:
+	{
+		cs_packet_right *packet = reinterpret_cast<cs_packet_right *>(buf);
+		if ((WORLD_WIDTH - 1) > x)
+			x++; 
+		break;
+	}
+	case CS_REQUEST_CONNECT:
+	{
+		cs_packet_connect* packet = reinterpret_cast<cs_packet_connect*>(buf);
+
+		
+		cout << "CS_REQUEST_CONNECT호출\n";
+		
+		g_mutex.lock();
+		clients[id].user_id = packet->id;
+		g_mutex.unlock();
+		g_mutex.lock();
+		clients[id].id = id;
+		g_mutex.unlock();
+		g_mutex.lock();
+		db_queue.push(make_pair(&clients[id], DB_CONNECT));
+		g_mutex.unlock();
+		
+		break;
+	}
+	case DS_CONNECT_RESULT:
+	{
+		//thread login_thread{ check_login };
+		//clientID.emplace(new_id);
+		
+		//login_thread.join();
+		//RecvPacketToLoginServer();
+		ds_packet_connect_result* packet = reinterpret_cast<ds_packet_connect_result*>(buf);
+
+	
+	
+		break;
+	}
 	default :
 		cout << "Unknown Packet Type Error\n";
 		while (true);
 	}
-	clients[id].x = x;
-	clients[id].y = y;
 
-	unordered_set <int> old_vl = clients[id].viewlist;
-	unordered_set <int> new_vl;
-	for (int i = 0; i < MAX_USER; ++i) {
-		if ((true == clients[i].connected) &&
-			(true == is_near_object(id, i)) &&
-			(i != id))
-			new_vl.insert(i);
-	}
-	for (int i = 0; i < NUM_NPC; ++i) {
-		int npc_id = i + NPC_ID_START;
-		if (true == is_near_object(id, npc_id))
-			new_vl.insert(npc_id);
-	}
-
-	for (auto cl : new_vl)
+		clients[id].x = x;
+		clients[id].y = y;
+	if (clients[id].access ==false)
 	{
-		if (0 != old_vl.count(cl)) {  // old, new 동시 존재	 
-			if (false == is_player(cl)) continue;
-			if (0 != clients[cl].viewlist.count(id))
-				send_pos_packet(cl, id);
-			else {
-				clients[cl].viewlist.insert(id);
-				send_put_player_packet(cl, id);
-			}
-		} else { // 새로 시야에 들어옴
-			clients[id].viewlist.insert(cl);
-			send_put_player_packet(id, cl);
-			if (false == is_player(cl)) continue;
-			if (0 != clients[cl].viewlist.count(id))
-				send_pos_packet(cl, id);
-			else {
-				clients[cl].viewlist.insert(id);
-				send_put_player_packet(cl, id);
-			}
-		}
+		return;
 	}
-	for (auto cl : old_vl) { // 시야에서 사라짐
-		if (0 != new_vl.count(cl)) continue;
-		clients[id].viewlist.erase(cl);
-		send_remove_player_packet(id, cl);
-		if (false == is_player(cl)) continue;
-		if (0 != clients[cl].viewlist.count(id))
+		unordered_set <int> old_vl = clients[id].viewlist;
+		unordered_set <int> new_vl;
+		for (int i = 0; i < MAX_USER; ++i) {
+			if ((true == clients[i].connected) &&
+				(true == is_near_object(id, i)) &&
+				(i != id))
+				new_vl.insert(i);
+		}
+		for (int i = 0; i < NUM_NPC; ++i) {
+			int npc_id = i + NPC_ID_START;
+			if (true == is_near_object(id, npc_id))
+				new_vl.insert(npc_id);
+		}
+
+		for (auto cl : new_vl)
 		{
-			clients[cl].viewlist.erase(id);
-			send_remove_player_packet(cl, id);
+			if (0 != old_vl.count(cl)) {  // old, new 동시 존재	 
+				if (false == is_player(cl)) continue;
+				if (0 != clients[cl].viewlist.count(id))
+					send_pos_packet(cl, id);
+				else {
+					clients[cl].viewlist.insert(id);
+					send_put_player_packet(cl, id);
+				}
+			}
+			else { // 새로 시야에 들어옴
+				clients[id].viewlist.insert(cl);
+				send_put_player_packet(id, cl);
+				if (false == is_player(cl)) continue;
+				if (0 != clients[cl].viewlist.count(id))
+					send_pos_packet(cl, id);
+				else {
+					clients[cl].viewlist.insert(id);
+					send_put_player_packet(cl, id);
+				}
+			}
 		}
-	}
-	send_pos_packet(id, id);
+		for (auto cl : old_vl) { // 시야에서 사라짐
+			if (0 != new_vl.count(cl)) continue;
+			clients[id].viewlist.erase(cl);
+			send_remove_player_packet(id, cl);
+			if (false == is_player(cl)) continue;
+			if (0 != clients[cl].viewlist.count(id))
+			{
+				clients[cl].viewlist.erase(id);
+				send_remove_player_packet(cl, id);
+			}
+		}
+		send_pos_packet(id, id);
+	
 }
 
 void do_recv(int id)
@@ -353,13 +469,17 @@ void worker_thread()
 			int rest_size = io_byte;
 			char *ptr = lpover_ex->messageBuffer;
 			char packet_size = 0;
-			if (0 < clients[key].prev_size) packet_size = clients[key].packet_buf[0];
-			while (rest_size > 0) {
-				if (0 == packet_size) packet_size = ptr[0];
+			if (0 < clients[key].prev_size)
+			{
+				packet_size = clients[key].packet_buf[0];
+			}
+			while (rest_size > 0)
+			{
+				if (0 == packet_size) 
+					packet_size = ptr[0];
 				int required = packet_size - clients[key].prev_size;
 				if (rest_size >= required) {
-					memcpy(clients[key].packet_buf + clients[key].
-						prev_size, ptr, required);
+					memcpy(clients[key].packet_buf + clients[key].prev_size, ptr, required);
 					process_packet(key, clients[key].packet_buf);
 					rest_size -= required;
 					ptr += required;
@@ -379,13 +499,142 @@ void worker_thread()
 	}
 }
 
+void SendPacketToLoginServer(queue<pair<SOCKETINFO*,QUERY_TYPE>>& q)
+{
+	int retval = 0;
+
+	SOCKETINFO* socketInfo;
+
+	g_mutex.lock();
+	pair<SOCKETINFO*, QUERY_TYPE>& p =q.back();
+	g_mutex.unlock();
+	sd_packet_connect sdp = sd_packet_connect{};
+	sdp.size = sizeof(sdp);
+	sdp.type = SD_CONNECT;
+	sdp.id = p.first->user_id;
+	
+	socketInfo = (struct SOCKETINFO*)malloc(sizeof(struct SOCKETINFO));
+	socketInfo->socket = g_loginSocket;
+	socketInfo->over.dataBuffer.len = sizeof(sd_packet_connect);
+	socketInfo->over.dataBuffer.buf = (char*)&sdp;
+	socketInfo->over.query =p.second ;
+	
+
+	//socketInfo->viewlist.clear();
+	//socketInfo->prev_size = 0;
+	//ZeroMemory(&socketInfo->over.overlapped, sizeof(WSAOVERLAPPED));
+
+	retval = send(g_loginSocket, socketInfo->over.dataBuffer.buf, socketInfo->over.dataBuffer.len, 0);
+
+	if (retval == SOCKET_ERROR)
+	{
+		err_display("send()");
+		return;
+	}
+	
+}
+int recvn(char *buf,int len,int flags)
+{
+	int received;
+
+	char *ptr = buf;
+	int left = len;
+
+	while(left>0)
+	{
+		received = recv(g_loginSocket, ptr, left, flags);
+		if(received == SOCKET_ERROR)
+		{
+			return SOCKET_ERROR;
+		}
+		else if(received == 0)
+		{
+			break;
+		}
+		left -= received;
+		ptr += received;
+
+	}
+	return (len - left);
+}
+
+
+void RecvPacketToLoginServer(queue<pair<SOCKETINFO*,QUERY_TYPE>>& q)
+{
+	int retval = 0;
+
+	
+	
+	SOCKETINFO* socketInfo;
+
+	g_mutex.lock();
+	pair<SOCKETINFO*, QUERY_TYPE>& p =q.back();
+	g_mutex.unlock();
+	ds_packet_connect_result dcr = ds_packet_connect_result{};
+
+
+	socketInfo =p.first;
+	//socketInfo->socket = g_loginSocket;
+	socketInfo->over.dataBuffer.len = sizeof(ds_packet_connect_result);
+	socketInfo->over.dataBuffer.buf = (char*)&dcr;
+	//socketInfo->over.query =p.second ;
+	
+	retval = recvn(socketInfo->over.messageBuffer, sizeof(ds_packet_connect_result), 0);
+
+	if (retval == SOCKET_ERROR)
+	{
+		err_display("recvn( )");
+		return;
+	}
+	
+	dcr.size = socketInfo->over.messageBuffer[0];
+	dcr.type = socketInfo->over.messageBuffer[1];
+	dcr.access = socketInfo->over.messageBuffer[2];
+
+	//g_mutex.lock();
+	p.first->access = dcr.access;
+	//g_mutex.unlock();
+	//g_mutex.lock();
+	if (p.first->access) {
+	//	g_mutex.unlock();
+	//	g_mutex.lock();
+		admit_client(p.first->id);
+	//	g_mutex.unlock();
+	}
+	else {
+	//	g_mutex.unlock();
+
+		send_deny_login_packet(p.first->id);
+		cout << "DB에 해당 ID가 없습니다.\n";
+	//	g_mutex.lock();
+	}
+//	g_mutex.unlock();
+//	g_mutex.lock();
+	
+	db_queue.pop();
+//	g_mutex.unlock();
+
+	cout << boolalpha << dcr.access << endl;
+	//dcr.size =(char)&socketInfo->over.messageBuffer;
+	
+	
+}
 void check_login()
 {
-	while(true)
+	ConnectToLoginServer();
+	while (true)
 	{
-		
+		if (db_queue.size() > 0)
+		{
+
+			SendPacketToLoginServer(db_queue);
+			RecvPacketToLoginServer(db_queue);
+			//db_queue.pop();
+		}
 	}
+	Destroy();
 }
+
 void admit_client(int new_id)
 {
 
@@ -507,13 +756,11 @@ void do_accept()
 			, g_iocp, new_id, 0);
 		
 		//DB에게 ID 존재 여부를 보내고 결과를 받아야함
+
 		
 		//ID 요청을 한 후 clientID에 저장해놓는다.
-	//	send_request_id(new_id);
+		send_request_id(new_id);
 		
-		//clientID.emplace(new_id);
-		
-		admit_client(new_id);
 		
 		do_recv(new_id);
 	}
@@ -654,6 +901,43 @@ void do_timer()
 	}
 }
 
+void ConnectToLoginServer()
+{
+	int retval = 0;
+	
+	//윈속 초기화
+	WSADATA wsa;
+	if(WSAStartup(MAKEWORD(2,2),&wsa) != 0)
+	{
+		return;
+	}
+	g_loginSocket = WSASocket(AF_INET, SOCK_STREAM, 0,NULL,0,WSA_FLAG_OVERLAPPED);
+	if (g_loginSocket == INVALID_SOCKET)
+		err_quit("socket()");
+
+	memset(&g_loginServerAddr,0, sizeof(g_loginServerAddr));
+	g_loginServerAddr.sin_family = AF_INET;
+	g_loginServerAddr.sin_port = htons(DB_PORT);
+	g_loginServerAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+	
+	retval = connect(g_loginSocket, (SOCKADDR*)&g_loginServerAddr, sizeof(g_loginServerAddr));
+	if (retval == SOCKET_ERROR) {
+		
+		closesocket(g_loginSocket);
+
+		WSACleanup();
+		err_quit("connect()");
+		return ;
+	}
+
+}
+
+void Destroy()
+{
+	closesocket(g_loginSocket);
+
+	WSACleanup();
+}
 int main()
 {
 	
@@ -665,9 +949,9 @@ int main()
 	g_iocp = CreateIoCompletionPort(INVALID_HANDLE_VALUE, 0, 0, 0);
 	for (int i = 0; i < 4; ++i)
 		worker_threads.emplace_back(thread{ worker_thread });
-//	thread login_thread{ check_login };
-	thread accept_thread{ do_accept };
 
+	thread accept_thread{ do_accept };
+	thread login_thread{ check_login};
 	//thread ai_thread{ do_ai };
 	//ai_thread.join();
 	/*auto db = std::make_unique<MainDB>();
@@ -681,7 +965,7 @@ int main()
 	thread timer_thread{ do_timer };
 	timer_thread.join();
 
-	//login_thread.join();
+	login_thread.join();
 	accept_thread.join();
 	for (auto &th : worker_threads) th.join();
 	CloseHandle(g_iocp);
