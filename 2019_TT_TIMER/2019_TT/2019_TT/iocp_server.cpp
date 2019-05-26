@@ -93,7 +93,7 @@ HANDLE g_iocp;
 
 void ConnectToLoginServer();
 void Destroy();
-void admit_client(int);
+void admit_client(int,long,long);
 void check_login();
 void SendPacketToLoginServer(queue<pair<SOCKETINFO*, QUERY_TYPE>>& q);
 void add_timer(EVENT_TYPE ev_type, int object,
@@ -291,6 +291,16 @@ void send_pos_packet(int to, int obj)
 	send_packet(to, reinterpret_cast<char *>(&packet));
 }
 
+void send_save_result_packet(int to,bool isSave)
+{
+	sc_packet_save_result packet;
+	packet.size = sizeof(packet);
+	packet.type = SC_POS_SAVE_RESULT;
+	packet.isSave = isSave;
+
+	send_packet(to, reinterpret_cast<char*>(&packet));
+}
+
 void process_packet(int id, char * buf)
 {
 	
@@ -344,17 +354,26 @@ void process_packet(int id, char * buf)
 		
 		break;
 	}
+	case CS_REQUEST_POS_SAVE:
+	{
+		cs_packet_pos_save* packet = reinterpret_cast<cs_packet_pos_save*>(buf);
+
+		g_mutex.lock();
+		clients[id].user_id = packet->id;
+		g_mutex.unlock();
+		g_mutex.lock();
+		clients[id].id = id;
+		g_mutex.unlock();
+		g_mutex.lock();
+		db_queue.push(make_pair(&clients[id], DB_POSITION_SAVE));
+		g_mutex.unlock();
+
+		break;
+	}
+
 	case DS_CONNECT_RESULT:
 	{
-		//thread login_thread{ check_login };
-		//clientID.emplace(new_id);
 		
-		//login_thread.join();
-		//RecvPacketToLoginServer();
-		ds_packet_connect_result* packet = reinterpret_cast<ds_packet_connect_result*>(buf);
-
-	
-	
 		break;
 	}
 	default :
@@ -508,17 +527,38 @@ void SendPacketToLoginServer(queue<pair<SOCKETINFO*,QUERY_TYPE>>& q)
 	g_mutex.lock();
 	pair<SOCKETINFO*, QUERY_TYPE>& p =q.back();
 	g_mutex.unlock();
-	sd_packet_connect sdp = sd_packet_connect{};
-	sdp.size = sizeof(sdp);
-	sdp.type = SD_CONNECT;
-	sdp.id = p.first->user_id;
-	
 	socketInfo = (struct SOCKETINFO*)malloc(sizeof(struct SOCKETINFO));
-	socketInfo->socket = g_loginSocket;
-	socketInfo->over.dataBuffer.len = sizeof(sd_packet_connect);
-	socketInfo->over.dataBuffer.buf = (char*)&sdp;
-	socketInfo->over.query =p.second ;
-	
+	if (p.second == DB_CONNECT)
+	{
+		
+		sd_packet_connect sdp = sd_packet_connect{};
+		sdp.size = sizeof(sdp);
+		sdp.type = SD_CONNECT;
+		sdp.id = p.first->user_id;
+
+		
+		socketInfo->socket = g_loginSocket;
+		socketInfo->over.dataBuffer.len = sizeof(sd_packet_connect);
+		socketInfo->over.dataBuffer.buf = (char*)&sdp;
+		socketInfo->over.query = p.second;
+	}
+	else if(p.second == DB_POSITION_SAVE)
+	{
+		sd_packet_pos_save sdps = sd_packet_pos_save{};
+		memset(&sdps, 0, sizeof(sd_packet_pos_save));
+		sdps.size = sizeof(sdps);
+		sdps.type = SD_POSITION_SAVE;
+		sdps.id = p.first->user_id;
+		sdps.pos_x = p.first->x;
+		sdps.pos_y = p.first->y;
+
+		
+		socketInfo->socket = g_loginSocket;
+		socketInfo->over.dataBuffer.len = sizeof(sd_packet_pos_save);
+		socketInfo->over.dataBuffer.buf = (char*)&sdps;
+		socketInfo->over.query = p.second;
+
+	}
 
 	//socketInfo->viewlist.clear();
 	//socketInfo->prev_size = 0;
@@ -570,51 +610,78 @@ void RecvPacketToLoginServer(queue<pair<SOCKETINFO*,QUERY_TYPE>>& q)
 	g_mutex.lock();
 	pair<SOCKETINFO*, QUERY_TYPE>& p =q.back();
 	g_mutex.unlock();
-	ds_packet_connect_result dcr = ds_packet_connect_result{};
+
+	if (p.second == DB_CONNECT)
+	{
+		ds_packet_connect_result dcr = ds_packet_connect_result{};
 
 
-	socketInfo =p.first;
-	//socketInfo->socket = g_loginSocket;
-	socketInfo->over.dataBuffer.len = sizeof(ds_packet_connect_result);
-	socketInfo->over.dataBuffer.buf = (char*)&dcr;
-	//socketInfo->over.query =p.second ;
-	
-	retval = recvn(socketInfo->over.messageBuffer, sizeof(ds_packet_connect_result), 0);
+		socketInfo = p.first;
+		//socketInfo->socket = g_loginSocket;
+		socketInfo->over.dataBuffer.len = sizeof(ds_packet_connect_result);
+		socketInfo->over.dataBuffer.buf = (char*)&dcr;
+		//socketInfo->over.query =p.second ;
 
+		retval = recvn(socketInfo->over.messageBuffer, sizeof(ds_packet_connect_result), 0);
+
+		//memcpy(&dcr, socketInfo->over.messageBuffer, sizeof(ds_packet_connect_result));
+		dcr.size = socketInfo->over.messageBuffer[0];
+		dcr.type = socketInfo->over.messageBuffer[1];
+		dcr.access = socketInfo->over.messageBuffer[2];
+		dcr.pos_x = socketInfo->over.messageBuffer[3];
+		dcr.pos_y = socketInfo->over.messageBuffer[5];
+
+
+		//g_mutex.lock();
+		p.first->access = dcr.access;
+		//g_mutex.unlock();
+		//g_mutex.lock();
+		if (p.first->access) {
+		//	g_mutex.unlock();
+		//	g_mutex.lock();
+			admit_client(p.first->id,dcr.pos_x,dcr.pos_y);
+		//	g_mutex.unlock();
+		}
+		else 
+		{
+	//	g_mutex.unlock();
+
+			send_deny_login_packet(p.first->id);
+			cout << "DB에 해당 ID가 없습니다.\n";
+			//	g_mutex.lock();
+		}
+	}
+	else if(p.second == DB_POSITION_SAVE)
+	{
+		ds_packet_save_result dsr = ds_packet_save_result{};
+
+		socketInfo = p.first;
+		socketInfo->over.dataBuffer.len = sizeof(ds_packet_save_result);
+		socketInfo->over.dataBuffer.buf = (char*)&dsr;
+
+		retval = recvn(socketInfo->over.messageBuffer, sizeof(ds_packet_save_result), 0);
+
+		dsr.size = socketInfo->over.messageBuffer[0];
+		dsr.type = socketInfo->over.messageBuffer[1];
+		dsr.is_save = socketInfo->over.messageBuffer[2];
+
+		send_save_result_packet(p.first->id, dsr.is_save);
+
+	}
 	if (retval == SOCKET_ERROR)
 	{
 		err_display("recvn( )");
 		return;
 	}
 	
-	dcr.size = socketInfo->over.messageBuffer[0];
-	dcr.type = socketInfo->over.messageBuffer[1];
-	dcr.access = socketInfo->over.messageBuffer[2];
-
-	//g_mutex.lock();
-	p.first->access = dcr.access;
-	//g_mutex.unlock();
-	//g_mutex.lock();
-	if (p.first->access) {
-	//	g_mutex.unlock();
-	//	g_mutex.lock();
-		admit_client(p.first->id);
-	//	g_mutex.unlock();
-	}
-	else {
-	//	g_mutex.unlock();
-
-		send_deny_login_packet(p.first->id);
-		cout << "DB에 해당 ID가 없습니다.\n";
-	//	g_mutex.lock();
-	}
+	
 //	g_mutex.unlock();
 //	g_mutex.lock();
 	
 	db_queue.pop();
 //	g_mutex.unlock();
 
-	cout << boolalpha << dcr.access << endl;
+	
 	//dcr.size =(char)&socketInfo->over.messageBuffer;
 	
 	
@@ -635,7 +702,7 @@ void check_login()
 	Destroy();
 }
 
-void admit_client(int new_id)
+void admit_client(int new_id,long x,long y)
 {
 
 
@@ -644,6 +711,11 @@ void admit_client(int new_id)
 
 
 		send_login_ok_packet(new_id);
+		
+		g_mutex.lock();
+		clients[new_id].x = x;
+		clients[new_id].y = y;
+		g_mutex.unlock();
 		send_put_player_packet(new_id, new_id);
 		for (int i = 0; i < MAX_USER; ++i) {
 			if (false == clients[i].connected) continue;
@@ -671,6 +743,8 @@ void admit_client(int new_id)
 				send_put_player_packet(new_id, npc_id);
 			}
 		}
+		send_pos_packet(new_id, new_id);
+	
 	
 }
 void do_accept()

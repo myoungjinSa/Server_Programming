@@ -34,6 +34,8 @@ struct SOCKETINFO
 	int				sendBytes;
 
 	sd_packet_connect* sd_connect;
+	sd_packet_pos_save* sd_pos_save;
+	
 	MainDB*			db_pointer;
 };
 
@@ -113,7 +115,7 @@ int main()
 
 	//서버 정보 객체 설정
 	SOCKADDR_IN serverAddr;
-	memset(&serverAddr, 0, sizeof(SOCKADDR_IN));
+	::memset(&serverAddr, 0, sizeof(SOCKADDR_IN));
 	serverAddr.sin_family = PF_INET;
 	serverAddr.sin_port = htons(DB_PORT);
 	serverAddr.sin_addr.S_un.S_addr = htonl(INADDR_ANY);
@@ -140,7 +142,7 @@ int main()
 
 	SOCKADDR_IN clientAddr;
 	int addrLen = sizeof(SOCKADDR_IN);
-	memset(&clientAddr, 0, addrLen);
+	::memset(&clientAddr, 0, addrLen);
 	SOCKET clientSocket;
 	DWORD flags;
 
@@ -155,7 +157,7 @@ int main()
 
 		cout << "db접속" << endl;
 		clients[clientSocket] = SOCKETINFO{};
-		memset(&clients[clientSocket], 0x00, sizeof(struct SOCKETINFO));
+		::memset(&clients[clientSocket], 0x00, sizeof(struct SOCKETINFO));
 		clients[clientSocket].socket = clientSocket;
 		clients[clientSocket].sd_connect = new sd_packet_connect;
 		clients[clientSocket].over.dataBuffer.len = MAX_BUFFER;
@@ -207,7 +209,7 @@ void CALLBACK recv_callback(DWORD Error, DWORD dataBytes, LPWSAOVERLAPPED overla
 	}  // 클라이언트가 closesocket을 했을 경우
 
 
-	clients[client_s].over.dataBuffer.len = sizeof(sd_packet_connect);
+	clients[client_s].over.dataBuffer.len = MAX_BUFFER;
 	clients[client_s].over.dataBuffer.buf = (char*)&clients[client_s].over.messageBuffer;
 	switch(clients[client_s].over.dataBuffer.buf[1])
 	{
@@ -219,7 +221,10 @@ void CALLBACK recv_callback(DWORD Error, DWORD dataBytes, LPWSAOVERLAPPED overla
 
 		wstring wid = to_wstring(clients[client_s].sd_connect->id);
 		wcout << wid << endl;
-		ret=main_db.ConnectID(wid);
+		//CLIENTS_INFO cl{ 10001,10,10 };
+		//ret = main_db.SaveUserPos(wid, cl);
+		ret = main_db.ConnectIDandGetPos(wid);
+		//ret=main_db.ConnectID(wid);
 		if (ret)
 			cout << "해당 id가 테이블에 있습니다." << endl;
 		else
@@ -230,14 +235,42 @@ void CALLBACK recv_callback(DWORD Error, DWORD dataBytes, LPWSAOVERLAPPED overla
 		dsr.type = DS_CONNECT_RESULT;
 		dsr.size = sizeof(ds_packet_connect_result);
 		dsr.access = ret;
+		dsr.pos_x = main_db.GetPosX();
+		dsr.pos_y = main_db.GetPosY();
 
 		clients[client_s].over.dataBuffer.len = dsr.size;
 		clients[client_s].over.dataBuffer.buf = (char*)&dsr;
 		break;
 	}
 	case SD_POSITION_SAVE:
+	{
+		clients[client_s].sd_pos_save = reinterpret_cast<sd_packet_pos_save*>(clients[client_s].over.messageBuffer);
+		
+		cout << "Position Save 요청이 들어왔습니다.\n";
+		bool ret{ false };
+		wstring wid = to_wstring(clients[client_s].sd_pos_save->id);
+		wcout << wid << endl;
+
+		short x = clients[client_s].sd_pos_save->pos_x;
+		short y = clients[client_s].sd_pos_save->pos_y;
+		CLIENTS_INFO cl{ clients[client_s].sd_pos_save->pos_x,clients[client_s].sd_pos_save->pos_y };
+		ret = main_db.SaveUserPos(wid, cl);
+
+		if (ret)
+			cout << "위치 저장 성공." << endl;
+		else
+			cout << "위치 저장 실패." << endl;
+
+		ds_packet_save_result dsr{};
+		dsr.type = DS_POSITION_SAVE_RESULT;
+		dsr.size = sizeof(ds_packet_save_result);
+		dsr.is_save = ret;
+		clients[client_s].over.dataBuffer.len = dsr.size;
+		clients[client_s].over.dataBuffer.buf = (char*)&dsr;
 
 		break;
+	}
+		
 	default:
 		
 		cout << "잘못된 쿼리 요청입니다." << endl;
@@ -247,7 +280,7 @@ void CALLBACK recv_callback(DWORD Error, DWORD dataBytes, LPWSAOVERLAPPED overla
 	//	<< clients[client_s].over.messageBuffer
 	//	<< " (" << dataBytes << ") bytes)\n";
 
-	memset(&(clients[client_s].over.overlapped), 0x00, sizeof(WSAOVERLAPPED));
+	::memset(&(clients[client_s].over.overlapped), 0x00, sizeof(WSAOVERLAPPED));
 	clients[client_s].over.overlapped.hEvent = (HANDLE)client_s;
 	if (WSASend(client_s, &(clients[client_s].over.dataBuffer), 1, &dataBytes, 0, &(clients[client_s].over.overlapped), send_callback) == SOCKET_ERROR)
 	{
@@ -276,13 +309,13 @@ void CALLBACK send_callback(DWORD Error, DWORD dataBytes, LPWSAOVERLAPPED overla
 
 	{
 		// WSASend(응답에 대한)의 콜백일 경우
-		clients[client_s].over.dataBuffer.len = sizeof(sd_packet_connect);
+		clients[client_s].over.dataBuffer.len = MAX_BUFFER;
 		clients[client_s].over.dataBuffer.buf = (char*)&clients[client_s].over.messageBuffer;
 
 		/*cout << "TRACE - Send message : "
 			<< clients[client_s].over.messageBuffer
 			<< " (" << dataBytes << " bytes)\n";*/
-		memset(&(clients[client_s].over.overlapped), 0x00, sizeof(WSAOVERLAPPED));
+		::memset(&(clients[client_s].over.overlapped), 0x00, sizeof(WSAOVERLAPPED));
 		clients[client_s].over.overlapped.hEvent = (HANDLE) client_s;
 		if (WSARecv(client_s, &clients[client_s].over.dataBuffer, 1, &receiveBytes, &flags, &(clients[client_s].over.overlapped), recv_callback) == SOCKET_ERROR)
 		{

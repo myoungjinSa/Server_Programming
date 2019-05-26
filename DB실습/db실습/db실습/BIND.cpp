@@ -41,8 +41,8 @@ int main() {
    SQLHSTMT hstmt = 0;  
    SQLRETURN retcode;  
    SQLWCHAR szName[NAME_LEN];
-   SQLINTEGER szLevel, userID;  
-   SQLLEN cbName = 0, cbLevel = 0, cbUser_ID = 0;		//콜백
+   SQLINTEGER szPosX, userID,szPosY;  
+   SQLLEN cbPosX = 0, cbPosY = 0, cbUser_ID = 0;		//콜백
   
 
    setlocale(LC_ALL, "korean");
@@ -62,8 +62,9 @@ int main() {
             SQLSetConnectAttr(hdbc, SQL_LOGIN_TIMEOUT, (SQLPOINTER)5, 0);  
   
             // Connect to data source  
-            retcode = SQLConnect(hdbc, (SQLWCHAR*) L"server_DB", SQL_NTS, (SQLWCHAR*) NULL, 0, NULL, 0); // 윈도우 인증이 아닌 ID,PW를 입력해야함.	  
-  
+          //  retcode = SQLConnect(hdbc, (SQLWCHAR*) L"server_DB", SQL_NTS, (SQLWCHAR*) NULL, 0, NULL, 0); // 윈도우 인증이 아닌 ID,PW를 입력해야함.	  
+			retcode = SQLConnect(hdbc, (SQLWCHAR*)L"server_DB", SQL_NTS, (SQLWCHAR*)L"myoungjin", SQL_NTS, (SQLWCHAR*)L"1234",SQL_NTS);
+
             // Allocate statement handle  
             if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {   
                retcode = SQLAllocHandle(SQL_HANDLE_STMT, hdbc, &hstmt);   
@@ -75,9 +76,13 @@ int main() {
                //retcode = SQLExecDirect(hstmt, (SQLWCHAR *) L"SELECT [ID], [Name], [Level] FROM MyGame ORDER BY 2,1,3", SQL_NTS);  
                //retcode = SQLExecDirect(hstmt, (SQLWCHAR *) L"SELECT * FROM dbo.ID WHERE ID = 32152", SQL_NTS);     
 			   
-			   wstring id(L"32152");
-			   wstring s3(L"EXEC connect_id @id =");
-			   wstring res = s3 + id;
+			  // wstring id(L"32152");
+			   wstring id(L"10009");
+			   wstring x(L"35");
+			   wstring y(L"20");
+			   wstring s3(L"EXEC Insert_data @ID =");
+
+			   wstring res = s3 + id + L", @PosX = "+x+L",@PosY ="+y;
 
 			   retcode = SQLExecDirect(hstmt, (SQLWCHAR *)res.c_str(), SQL_NTS);           
 			   
@@ -85,11 +90,11 @@ int main() {
   
                   // Bind columns 1, 2, and 3  
                   retcode = SQLBindCol(hstmt, 1, SQL_C_LONG, &userID, 100, &cbUser_ID);  
-                 // retcode = SQLBindCol(hstmt, 2, SQL_C_CHAR, szName, NAME_LEN, &cbName);  
-                //  retcode = SQLBindCol(hstmt, 3, SQL_C_LONG, &szLevel, 100 , &cbLevel);   
+                  retcode = SQLBindCol(hstmt, 2, SQL_C_LONG, &szPosX, 100, &cbPosX);  
+                  retcode = SQLBindCol(hstmt, 3, SQL_C_LONG, &szPosY, 100 , &cbPosY);   
   
                   // Fetch and print each row of data. On an error, display a message and exit.  
-                  for (int i=0 ; ; i++) {  
+                 /* for (int i=0 ; ; i++) {  
                      retcode = SQLFetch(hstmt);  
                      if (retcode == SQL_ERROR || retcode == SQL_SUCCESS_WITH_INFO)  
                         show_error();  
@@ -97,7 +102,7 @@ int main() {
                         wprintf(L"%d: %d\n", i + 1, userID);  
                      else  
                         break;  
-                  }  
+                  }  */
                }  
 			   else
 			   {

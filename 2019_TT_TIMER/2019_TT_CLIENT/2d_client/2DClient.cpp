@@ -81,7 +81,7 @@ int		g_myid;
 int		g_left_x = 0;
 int     g_top_y = 0;
 
-
+int     table_id;
 // FUNCTIONS //////////////////////////////////////////////
 
 void SendConnectPacket(const string& id)
@@ -104,11 +104,34 @@ void SendConnectPacket(const string& id)
 	send_wsabuf.len = sizeof(packet);
 	packet->type = CS_REQUEST_CONNECT;
 	packet->id = stoi(id);
-
+	table_id = stoi(id);
 	
 	DWORD iobyte;
 	int ret = WSASend(g_mysocket, &send_wsabuf, 1, &iobyte, 0, NULL, NULL);
 	if (ret) {
+		int error_code = WSAGetLastError();
+		printf("Error while sending packet [%d]", error_code);
+	}
+
+}
+
+void SendRequestPosSave(const int& id, const int& posX,const int& posY)
+{
+	cs_packet_pos_save* packet = reinterpret_cast<cs_packet_pos_save*>(send_buffer);
+	ZeroMemory(packet, sizeof(cs_packet_pos_save));
+	packet->size = sizeof(cs_packet_pos_save);
+	send_wsabuf.len = sizeof(cs_packet_pos_save);
+
+	packet->type = CS_REQUEST_POS_SAVE;
+	packet->id = table_id;
+
+	packet->posX = posX;
+	packet->posY = posY;
+
+	DWORD iobyte;
+	int ret = WSASend(g_mysocket, &send_wsabuf, 1, &iobyte, 0, NULL, NULL);
+	if(ret)
+	{
 		int error_code = WSAGetLastError();
 		printf("Error while sending packet [%d]", error_code);
 	}
@@ -214,6 +237,11 @@ void ProcessPacket(char *ptr)
 		else {
 			npc[other_id - NPC_ID_START].attr &= ~BOB_ATTR_VISIBLE;
 		}
+		break;
+	}
+	case SC_POS_SAVE_RESULT:
+	{
+
 		break;
 	}
 	/*
@@ -346,6 +374,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd,
 		break;
 	case WM_DESTROY:
 	{
+		SendRequestPosSave(g_myid, player.x, player.y);
 		// kill the application			
 		PostQuitMessage(0);
 		return(0);
