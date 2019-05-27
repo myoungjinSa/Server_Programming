@@ -93,7 +93,7 @@ HANDLE g_iocp;
 
 void ConnectToLoginServer();
 void Destroy();
-void admit_client(int,long,long);
+void admit_client(int,short,short);
 void check_login();
 void SendPacketToLoginServer(queue<pair<SOCKETINFO*, QUERY_TYPE>>& q);
 void add_timer(EVENT_TYPE ev_type, int object,
@@ -344,6 +344,7 @@ void process_packet(int id, char * buf)
 		
 		g_mutex.lock();
 		clients[id].user_id = packet->id;
+		cout << clients[id].user_id << endl;
 		g_mutex.unlock();
 		g_mutex.lock();
 		clients[id].id = id;
@@ -358,8 +359,10 @@ void process_packet(int id, char * buf)
 	{
 		cs_packet_pos_save* packet = reinterpret_cast<cs_packet_pos_save*>(buf);
 
+		cout << "CS_REQUEST_POS_SAVE호출\n";
 		g_mutex.lock();
 		clients[id].user_id = packet->id;
+		cout << clients[id].user_id << endl;
 		g_mutex.unlock();
 		g_mutex.lock();
 		clients[id].id = id;
@@ -534,13 +537,17 @@ void SendPacketToLoginServer(queue<pair<SOCKETINFO*,QUERY_TYPE>>& q)
 		sd_packet_connect sdp = sd_packet_connect{};
 		sdp.size = sizeof(sdp);
 		sdp.type = SD_CONNECT;
+		g_mutex.lock();
 		sdp.id = p.first->user_id;
-
+		cout << "sdp패킷- id : "<<sdp.id << endl;
+		g_mutex.unlock();
 		
 		socketInfo->socket = g_loginSocket;
 		socketInfo->over.dataBuffer.len = sizeof(sd_packet_connect);
 		socketInfo->over.dataBuffer.buf = (char*)&sdp;
+		g_mutex.lock();
 		socketInfo->over.query = p.second;
+		g_mutex.unlock();
 	}
 	else if(p.second == DB_POSITION_SAVE)
 	{
@@ -548,15 +555,23 @@ void SendPacketToLoginServer(queue<pair<SOCKETINFO*,QUERY_TYPE>>& q)
 		memset(&sdps, 0, sizeof(sd_packet_pos_save));
 		sdps.size = sizeof(sdps);
 		sdps.type = SD_POSITION_SAVE;
+		g_mutex.lock();
 		sdps.id = p.first->user_id;
+		g_mutex.unlock();
+		g_mutex.lock();
 		sdps.pos_x = p.first->x;
+		g_mutex.unlock();
+		g_mutex.lock();
 		sdps.pos_y = p.first->y;
+		g_mutex.unlock();
 
 		
 		socketInfo->socket = g_loginSocket;
 		socketInfo->over.dataBuffer.len = sizeof(sd_packet_pos_save);
 		socketInfo->over.dataBuffer.buf = (char*)&sdps;
+		g_mutex.lock();
 		socketInfo->over.query = p.second;
+		g_mutex.unlock();
 
 	}
 
@@ -615,8 +630,9 @@ void RecvPacketToLoginServer(queue<pair<SOCKETINFO*,QUERY_TYPE>>& q)
 	{
 		ds_packet_connect_result dcr = ds_packet_connect_result{};
 
-
+		g_mutex.lock();
 		socketInfo = p.first;
+		g_mutex.unlock();
 		//socketInfo->socket = g_loginSocket;
 		socketInfo->over.dataBuffer.len = sizeof(ds_packet_connect_result);
 		socketInfo->over.dataBuffer.buf = (char*)&dcr;
@@ -632,24 +648,30 @@ void RecvPacketToLoginServer(queue<pair<SOCKETINFO*,QUERY_TYPE>>& q)
 		dcr.pos_y = socketInfo->over.messageBuffer[5];
 
 
-		//g_mutex.lock();
+		
+		g_mutex.lock();
 		p.first->access = dcr.access;
-		//g_mutex.unlock();
-		//g_mutex.lock();
+
+		g_mutex.unlock();
+		g_mutex.lock();
 		if (p.first->access) {
-		//	g_mutex.unlock();
-		//	g_mutex.lock();
+			g_mutex.unlock();
+			g_mutex.lock();
 			admit_client(p.first->id,dcr.pos_x,dcr.pos_y);
-		//	g_mutex.unlock();
+			g_mutex.unlock();
+			g_mutex.lock();
 		}
 		else 
 		{
-	//	g_mutex.unlock();
-
+			g_mutex.unlock();
+			
+			//g_mutex.lock();
 			send_deny_login_packet(p.first->id);
+			//g_mutex.unlock();
 			cout << "DB에 해당 ID가 없습니다.\n";
-			//	g_mutex.lock();
+			g_mutex.lock();
 		}
+		g_mutex.unlock();
 	}
 	else if(p.second == DB_POSITION_SAVE)
 	{
@@ -702,7 +724,7 @@ void check_login()
 	Destroy();
 }
 
-void admit_client(int new_id,long x,long y)
+void admit_client(int new_id,short x,short y)
 {
 
 
@@ -712,10 +734,10 @@ void admit_client(int new_id,long x,long y)
 
 		send_login_ok_packet(new_id);
 		
-		g_mutex.lock();
+		//g_mutex.lock();
 		clients[new_id].x = x;
 		clients[new_id].y = y;
-		g_mutex.unlock();
+		//g_mutex.unlock();
 		send_put_player_packet(new_id, new_id);
 		for (int i = 0; i < MAX_USER; ++i) {
 			if (false == clients[i].connected) continue;
@@ -968,8 +990,8 @@ void do_timer()
 			{
 				int sc = duration_cast<seconds>(
 					high_resolution_clock::now() - timer_start).count(); 
-				if(sc !=0)
-					cout << count / sc <<  " MonsterMove/Sec\n";
+				//if(sc !=0)
+					//cout << count / sc <<  " MonsterMove/Sec\n";
 			}
 		}
 	}

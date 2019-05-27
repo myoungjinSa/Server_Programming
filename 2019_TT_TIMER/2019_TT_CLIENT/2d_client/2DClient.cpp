@@ -241,6 +241,8 @@ void ProcessPacket(char *ptr)
 	}
 	case SC_POS_SAVE_RESULT:
 	{
+		cout << "정상적으로 위치가 저장되었습니다" << endl;
+		Sleep(1000);
 
 		break;
 	}
@@ -318,34 +320,43 @@ LRESULT CALLBACK WindowProc(HWND hwnd,
 						   // what is the message 
 	switch (msg)
 	{
-	case WM_KEYDOWN: {
-		int x = 0, y = 0;
-		if (wparam == VK_RIGHT)	x += 1;
-		if (wparam == VK_LEFT)	x -= 1;
-		if (wparam == VK_UP)	y -= 1;
-		if (wparam == VK_DOWN)	y += 1;
-		cs_packet_up *my_packet = reinterpret_cast<cs_packet_up *>(send_buffer);
-		my_packet->size = sizeof(my_packet);
-		send_wsabuf.len = sizeof(my_packet);
-		DWORD iobyte;
-		if (0 != x) {
-			if (1 == x) my_packet->type = CS_RIGHT;
-			else my_packet->type = CS_LEFT;
-			int ret = WSASend(g_mysocket, &send_wsabuf, 1, &iobyte, 0, NULL, NULL);
-			if (ret) {
-				int error_code = WSAGetLastError();
-				printf("Error while sending packet [%d]", error_code);
+	case WM_KEYDOWN: 
+	{
+		{
+			int x = 0, y = 0;
+			if (wparam == VK_RIGHT)	x += 1;
+			if (wparam == VK_LEFT)	x -= 1;
+			if (wparam == VK_UP)	y -= 1;
+			if (wparam == VK_DOWN)	y += 1;
+			cs_packet_up *my_packet = reinterpret_cast<cs_packet_up *>(send_buffer);
+			my_packet->size = sizeof(my_packet);
+			send_wsabuf.len = sizeof(my_packet);
+			DWORD iobyte;
+			if (0 != x) {
+				if (1 == x) my_packet->type = CS_RIGHT;
+				else my_packet->type = CS_LEFT;
+				int ret = WSASend(g_mysocket, &send_wsabuf, 1, &iobyte, 0, NULL, NULL);
+				if (ret) {
+					int error_code = WSAGetLastError();
+					printf("Error while sending packet [%d]", error_code);
+				}
+			}
+			if (0 != y) {
+				if (1 == y) my_packet->type = CS_DOWN;
+				else my_packet->type = CS_UP;
+				WSASend(g_mysocket, &send_wsabuf, 1, &iobyte, 0, NULL, NULL);
 			}
 		}
-		if (0 != y) {
-			if (1 == y) my_packet->type = CS_DOWN;
-			else my_packet->type = CS_UP;
-			WSASend(g_mysocket, &send_wsabuf, 1, &iobyte, 0, NULL, NULL);
+
+		{
+			if (wparam == VK_ESCAPE)
+			{
+				SendRequestPosSave(g_myid, player.x, player.y);
+			}
 		}
-
-
+		 break;
 	}
-					 break;
+				
 	case WM_CREATE:
 	{
 		AllocConsole();
@@ -374,7 +385,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd,
 		break;
 	case WM_DESTROY:
 	{
-		SendRequestPosSave(g_myid, player.x, player.y);
+	
 		// kill the application			
 		PostQuitMessage(0);
 		return(0);

@@ -47,14 +47,14 @@ enum QUERY_TYPE
 struct sc_packet_pos {
 	char size;
 	char type;
-	int id;
-	char x, y;
+	short x, y;
+	short id;
 };
 
 struct sc_packet_remove_player {
 	char size;
 	char type;
-	int id;
+	short id;
 };
 
 struct sc_packet_request_id
@@ -71,14 +71,14 @@ struct sc_packet_deny_login
 struct sc_packet_login_ok {
 	char size;
 	char type;
-	int id;
+	short id;
 };
 
 struct sc_packet_put_player {
 	char size;
 	char type;
-	int id;
-	long x, y;
+	short x, y;
+	short id;
 };
 
 struct sc_packet_save_result
@@ -92,7 +92,7 @@ struct cs_packet_connect
 {
 	char size;
 	char type;
-	int id;
+	short id;
 };
 
 struct cs_packet_up {
@@ -119,9 +119,7 @@ struct cs_packet_pos_save
 {
 	char     size;
 	char     type;
-	char	 paddingA;
-	char     paddingB;
-	int     id;
+	short     id;
 	short    posX;
 	short    posY;
 };
@@ -132,16 +130,15 @@ struct sd_packet_connect
 {
 	char size;
 	char type;
-	int id;
+	short id;
 };
 
 struct sd_packet_pos_save
 {
 	char size;
 	char type;
-	char paddingA;
-	char paddingB;
-	int  id;
+	
+	short  id;
 	short pos_x;
 	short pos_y;
 };
