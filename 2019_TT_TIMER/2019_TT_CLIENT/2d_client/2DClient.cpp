@@ -208,8 +208,8 @@ void ProcessPacket(char *ptr)
 		sc_packet_pos *my_packet = reinterpret_cast<sc_packet_pos *>(ptr);
 		int other_id = my_packet->id;
 		if (other_id == g_myid) {
-			g_left_x = my_packet->x - 4;
-			g_top_y = my_packet->y - 4;
+			g_left_x = my_packet->x - 10;
+			g_top_y = my_packet->y - 6;
 			player.x = my_packet->x;
 			player.y = my_packet->y;
 		}
