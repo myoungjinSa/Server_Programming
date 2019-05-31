@@ -68,6 +68,7 @@ BITMAP_IMAGE white_tile;
 
 #define UNIT_TEXTURE  0
 #define OBJECT_TEXTURE 1
+#define NPC_TEXTURE 2
 SOCKET g_mysocket;
 WSABUF	send_wsabuf;
 char 	send_buffer[BUF_SIZE];
@@ -534,10 +535,10 @@ int Game_Init(void *parms)
 
 	// now let's load in all the frames for the skelaton!!!
 
-	Load_Texture(L"CHESS2.PNG", UNIT_TEXTURE, 384, 64);
+	Load_Texture(L"Player.PNG", UNIT_TEXTURE, 64, 64);
 
 	if (!Create_BOB32(&player, 0, 0, 64, 64, 1, BOB_ATTR_SINGLE_FRAME)) return(0);
-	Load_Frame_BOB32(&player, UNIT_TEXTURE, 0, 2, 0, BITMAP_EXTRACT_MODE_CELL);
+	Load_Frame_BOB32(&player, UNIT_TEXTURE, 0, 0, 0, BITMAP_EXTRACT_MODE_CELL);
 
 	// set up stating state of skelaton
 	Set_Animation_BOB32(&player, 0);
@@ -562,6 +563,7 @@ int Game_Init(void *parms)
 			Set_Pos_BOB32(&object[k++],i ,  j);
 		}
 	}
+
 	// create skelaton bob
 	for (int i = 0; i < MAX_USER; ++i) {
 		if (!Create_BOB32(&skelaton[i], 0, 0, 64, 64, 1, BOB_ATTR_SINGLE_FRAME))
@@ -575,11 +577,12 @@ int Game_Init(void *parms)
 		Set_Pos_BOB32(&skelaton[i], 0, 0);
 	}
 
+	Load_Texture(L"monster1.PNG", NPC_TEXTURE, 64, 64);
 	 // create skelaton bob
 	for (int i = 0; i < NUM_NPC; ++i) {
 		if (!Create_BOB32(&npc[i], 0, 0, 64, 64, 1, BOB_ATTR_SINGLE_FRAME))
 			return(0);
-		Load_Frame_BOB32(&npc[i], UNIT_TEXTURE, 0, 4, 0, BITMAP_EXTRACT_MODE_CELL);
+		Load_Frame_BOB32(&npc[i], NPC_TEXTURE, 0, 0, 0, BITMAP_EXTRACT_MODE_CELL);
 
 		// set up stating state of skelaton
 		Set_Animation_BOB32(&npc[i], 0);
