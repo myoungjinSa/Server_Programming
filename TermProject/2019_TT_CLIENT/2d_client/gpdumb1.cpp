@@ -165,6 +165,36 @@ if (!(bob->attr & BOB_ATTR_VISIBLE))
 return(1);
 } // end Draw_BOB16
 
+int Draw_ScreenSpaceBOB32(BOB_PTR bob,int gx,int gy)             // bob to draw
+{
+// draw a bob at the x,y defined in the BOB
+// on the destination surface defined in dest
+
+// is this a valid bob
+if (!bob)
+    return(0);
+
+// is bob visible
+if (!(bob->attr & BOB_ATTR_VISIBLE))
+   return(1);
+
+
+	D3DXVECTOR3 pos = D3DXVECTOR3((bob->x - gx) * 65.0f + 8, 
+		(bob->y - gy) * 65.0f + 8, 0.0);
+
+	RECT my = {bob->tx[bob->curr_frame], bob->ty[bob->curr_frame], 
+		bob->tx[bob->curr_frame] + bob->width, bob->ty[bob->curr_frame] + bob->height };
+
+	g_pSprite->Draw(bob->images[bob->curr_frame], &my, NULL, &pos,
+			D3DCOLOR_ARGB(255,255,255,255));
+
+	if (bob->message_time > GetTickCount() - 2000) 
+		Draw_Text_D3D(bob->message,static_cast<int>(pos.x),static_cast<int>(pos.y),D3DCOLOR_ARGB(255,200,200,255));
+
+
+// return success
+return(1);
+} // end Draw_BOB16
 
 ///////////////////////////////////////////////////////////
 

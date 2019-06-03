@@ -60,7 +60,13 @@ typedef unsigned short WORD;
 typedef unsigned char  UCHAR;
 typedef unsigned char  BYTE;
 
+typedef struct ITEM_INVENTORY
+{
+	bool blank;
+	int kind;
+}INVENTORY;
 
+constexpr int MAX_ITEMS = 3;
 // the blitter object structure BOB
 typedef struct BOB_TYP
         {
@@ -68,7 +74,9 @@ typedef struct BOB_TYP
         int anim_state;     // an animation state variable, up to you
         int attr;           // attributes pertaining to the object (general)
         int x,y;          // position bitmap will be displayed at
-		int kind;			//item 종류
+		int item_count;
+		int world_item_kind;
+		INVENTORY items[MAX_ITEMS];
 		int hp;				//hp;
 		bool alive;			//생존 여부
         int xv,yv;        // velocity of object
@@ -124,6 +132,7 @@ int DD_Fill_Surface(D3DCOLOR color);
 int Create_BOB32(BOB_PTR bob,int x, int y,int width, int height,int num_frames,int attr);              
 int Destroy_BOB32(BOB_PTR bob);
 int Draw_BOB32(BOB_PTR bob);
+int Draw_ScreenSpaceBOB32(BOB_PTR bob, int gx, int gy);
 int Draw_Scaled_BOB32(BOB_PTR bob, int swidth, int sheight);
 int Load_Texture(const wchar_t *fname, int texture_id, int width, int height);
 int Load_Frame_BOB32(BOB_PTR bob, int texture_id, int frame, int cx,int cy,int mode);             

@@ -53,9 +53,11 @@ HWND main_window_handle = NULL; // save the window handle
 HINSTANCE main_instance = NULL; // save the instance
 char buffer[80];                // used to print text
 
+constexpr int inven_count = 3;
 								// demo globals
 BOB			player;				// 플레이어 Unit
 BOB         item[ITEM_COUNT];			// item;
+BOB			inven[inven_count];		//인벤
 BOB			object[300];
 BOB			npc[NUM_NPC];      // NPC Unit
 BOB         skelaton[MAX_USER];     // the other player skelaton
@@ -84,7 +86,7 @@ char	packet_buffer[BUF_SIZE];
 DWORD		in_packet_size = 0;
 int		saved_packet_size = 0;
 int		g_myid;
-
+bool    g_gameStart{ false };
 int		g_left_x = 0;
 int     g_top_y = 0;
 
@@ -145,6 +147,26 @@ void SendRequestPosSave(const int& id, const int& posX,const int& posY)
 
 }
 
+void SendUseHealItemPacket(const int id)
+{
+	cs_packet_use_item_heal *packet = reinterpret_cast<cs_packet_use_item_heal*>(send_buffer);
+	ZeroMemory(packet, sizeof(cs_packet_use_item_heal));
+	packet->size = sizeof(cs_packet_use_item_heal);
+	send_wsabuf.len = sizeof(cs_packet_use_item_heal);
+
+	packet->type = CS_USE_HEAL_ITEM;
+	packet->id = id;
+
+	DWORD iobyte;
+	int ret = WSASend(g_mysocket, &send_wsabuf, 1, &iobyte, 0, NULL, NULL);
+	if(ret)
+	{
+		int error_code = WSAGetLastError();
+		printf("Error while sending packet[%d]", error_code);
+	}
+
+}
+
 void ProcessPacket(char *ptr)
 {
 	static bool first_time = true;
@@ -172,6 +194,7 @@ void ProcessPacket(char *ptr)
 		sc_packet_login_ok *packet = 
 			reinterpret_cast<sc_packet_login_ok *>(ptr);
 		g_myid = packet->id;
+
 		break;
 	}
 	case SC_DENY_LOGIN:
@@ -199,6 +222,7 @@ void ProcessPacket(char *ptr)
 			player.hp = my_packet->hp;
 			player.alive = true;
 			player.attr |= BOB_ATTR_VISIBLE;
+			g_gameStart = true;
 		}
 		else if (id < MAX_USER) {
 			skelaton[id].x = my_packet->x;
@@ -258,8 +282,26 @@ void ProcessPacket(char *ptr)
 		{
 			item[other_id - (NPC_ID_START + NUM_NPC)].x = my_packet->x;
 			item[other_id - (NPC_ID_START + NUM_NPC)].y = my_packet->y;
-			item[other_id - (NPC_ID_START + NUM_NPC)].kind = my_packet->kind;
+			item[other_id - (NPC_ID_START + NUM_NPC)].world_item_kind = my_packet->kind;
 			item[other_id - (NPC_ID_START + NUM_NPC)].attr |= BOB_ATTR_VISIBLE;
+		}
+
+		break;
+	}
+	case SC_ITEM_EAT:
+	{
+		sc_packet_item_eat* my_packet = reinterpret_cast<sc_packet_item_eat*>(ptr);
+		
+		int id = my_packet->id;
+
+		if(id >= NPC_ID_START + NUM_NPC && id < NUM_ITEM )
+		{
+			if (player.item_count < MAX_ITEMS)
+			{
+				player.items[player.item_count].blank = false;
+				player.items[player.item_count].kind = my_packet->kind+HEALTH_PORTION_TEXTURE;
+				player.item_count += 1;
+			}
 		}
 
 		break;
@@ -425,7 +467,34 @@ LRESULT CALLBACK WindowProc(HWND hwnd,
 			{
 				SendRequestPosSave(g_myid, player.x, player.y);
 			}
+			if(wparam == KEY_Z)
+			{
+				bool bHealPortion = false;
+				int k = 0;
+				for(int i=0;i<MAX_ITEMS;++i)
+				{
+
+					if(player.items[i].kind == HEALTH_PORTION_TEXTURE && player.items[i].blank == false)		//HEAL PORTION
+					{
+						k = i;
+						bHealPortion = true;
+					}
+				}
+				if (bHealPortion)
+				{
+					SendUseHealItemPacket(g_myid);
+					player.items[k].blank = true;
+					if (player.item_count > 0)
+					{
+						player.item_count -= 1;
+
+					}
+				}
+			}
 		}
+
+		
+
 		 break;
 	}
 				
@@ -680,6 +749,21 @@ int Game_Init(void *parms)
 		Set_Pos_BOB32(&item[i], 0, 0);
 	
 	}
+
+	for(int i=0;i<inven_count;++i)
+	{
+		if (!Create_BOB32(&inven[i], 0, 0, 64, 64, 1, BOB_ATTR_SINGLE_FRAME))
+			return 0;
+
+		Load_Frame_BOB32(&inven[i], i + HEALTH_PORTION_TEXTURE, 0, 0, 0, BITMAP_EXTRACT_MODE_CELL);
+
+		Set_Animation_BOB32(&inven[i], 0);
+		Set_Anim_Speed_BOB32(&inven[i], 4);
+		Set_Vel_BOB32(&inven[i], 0, 0);
+		Set_Pos_BOB32(&inven[i], 0, 0);
+
+		inven[i].attr |= BOB_ATTR_VISIBLE;
+	}
 	
 	
 
@@ -794,13 +878,21 @@ int Game_Main(void *parms)
 	{
 		Draw_BOB32(&item[i]);
 	}
+	for(int i=0;i<player.item_count;++i)
+	{
+		if (player.items[i].blank == false)
+		{
+			Set_Pos_BOB32(&inven[player.items[i].kind-HEALTH_PORTION_TEXTURE], player.x - (8 + i), player.y - 6);
+			Draw_BOB32(&inven[player.items[i].kind-HEALTH_PORTION_TEXTURE]);
+		}
+	}
 	// draw some text
 	wchar_t text[300];
 	wsprintf(text, L"MY POSITION (%3d, %3d)", player.x, player.y);
 	Draw_Text_D3D(text, 10, screen_height - 64, D3DCOLOR_ARGB(255, 255, 255, 255));
 	wsprintf(text, L"MY HP (%3d)", player.hp);
 	Draw_Text_D3D(text, 300, screen_height - 64, D3DCOLOR_ARGB(255, 255, 255, 255));
-	if(player.alive == false)
+	if(player.alive == false && g_gameStart == true)
 	{
 		wsprintf(text, L"YOU DEAD !!");
 		Draw_Text_D3D(text, 300, 240, D3DCOLOR_ARGB(255, 0, 0, 255));

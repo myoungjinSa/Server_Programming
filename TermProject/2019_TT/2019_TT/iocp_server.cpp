@@ -168,7 +168,7 @@ void initialize()
 	}
 	for(int i=NUM_NPC + NPC_ID_START;i<NUM_ITEM;++i)
 	{
-		clients[i].kind = i % 3;
+		clients[i].kind = (i % 3);
 		clients[i].x = rand() % 255;
 		clients[i].y = rand() % 255;
 		clients[i].isEaten = false;
@@ -326,7 +326,17 @@ void send_put_item_packet(int to, int item_obj)
 }
 
 
+void send_item_eat_packet(int to, int item_obj)
+{
+	sc_packet_item_eat packet;
+	packet.id = item_obj;
+	packet.size = sizeof(packet);
+	packet.type = SC_ITEM_EAT;
+	packet.kind = clients[item_obj].kind;
 
+
+	send_packet(to, reinterpret_cast<char*>(&packet));
+}
 void send_item_remove_packet(int to,int item_obj)
 {
 	sc_packet_remove_item packet;
@@ -454,7 +464,18 @@ void process_packet(int id, char * buf)
 
 		break;
 	}
+	case CS_USE_HEAL_ITEM:
+	{
+		cs_packet_use_item_heal* packet = reinterpret_cast<cs_packet_use_item_heal*>(buf);
+		
+		
+		clients[packet->id].hp += 10;
 
+		send_hp_packet(packet->id);
+
+
+		break;
+	}
 	case DS_CONNECT_RESULT:
 	{
 		
@@ -512,7 +533,7 @@ void process_packet(int id, char * buf)
 				if(true == is_collision(id,cl) && is_item(cl) == true)
 				{
 					clients[cl].isEaten = true;
-
+					send_item_eat_packet(id, cl);
 					send_item_remove_packet(id, cl);
 				}
 				if (false == is_player(cl)) continue;
