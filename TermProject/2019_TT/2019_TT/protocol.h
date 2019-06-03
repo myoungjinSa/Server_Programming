@@ -3,10 +3,12 @@
 constexpr int MAX_USER = 10;
 
 constexpr int NPC_ID_START = 100;
-constexpr int NUM_NPC = 200000;
+constexpr int NUM_NPC = 20000;
+constexpr int ITEM_COUNT = 100;
+constexpr int NUM_ITEM = NPC_ID_START +NUM_NPC + ITEM_COUNT;
 
-#define WORLD_WIDTH		800
-#define WORLD_HEIGHT	800
+#define WORLD_WIDTH		255
+#define WORLD_HEIGHT	255
 
 #define SERVER_PORT		3500
 #define DB_PORT			3501
@@ -27,12 +29,17 @@ constexpr int NUM_NPC = 200000;
 #define SC_REQUEST_ID			5
 #define SC_DENY_LOGIN			6
 #define SC_POS_SAVE_RESULT		7
+#define SC_HP					8
+#define SC_PUT_ITEM				9
+#define SC_ITEM_POS				10
+#define SC_REMOVE_ITEM			11
+#define SC_DEAD					12
 
 
-#define SD_CONNECT				10
-#define SD_POSITION_SAVE		11
-#define DS_CONNECT_RESULT		12
-#define DS_POSITION_SAVE_RESULT 13
+#define SD_CONNECT				20
+#define SD_POSITION_SAVE		21
+#define DS_CONNECT_RESULT		22
+#define DS_POSITION_SAVE_RESULT 23
 
 enum QUERY_TYPE
 {
@@ -47,16 +54,51 @@ enum QUERY_TYPE
 struct sc_packet_pos {
 	char size;
 	char type;
-	short x, y;
+	unsigned char x, y;
 	short id;
 };
 
+struct sc_packet_item_put
+{
+	char size;
+	char type;
+	char kind;
+	char padding;
+	unsigned short x;
+	unsigned short y;
+	unsigned short id;
+
+};
+
+struct sc_packet_item_pos
+{
+	char size;
+	char type;
+	char kind;
+	char padding;
+	unsigned short x;
+	unsigned short y;
+	unsigned short id;
+};
+
+struct sc_packet_remove_item
+{
+	char size;
+	char type;
+	unsigned short id;
+};
 struct sc_packet_remove_player {
 	char size;
 	char type;
-	short id;
+	unsigned short id;
 };
 
+struct sc_packet_dead
+{
+	char size;
+	char type;
+	unsigned short id;
+};
 struct sc_packet_request_id
 {
 	char size;
@@ -71,14 +113,22 @@ struct sc_packet_deny_login
 struct sc_packet_login_ok {
 	char size;
 	char type;
-	short id;
+	unsigned short id;
 };
 
+struct sc_packet_hp
+{
+	char size;
+	char type;
+	short id;
+	unsigned char hp;
+};
 struct sc_packet_put_player {
 	char size;
 	char type;
-	short x, y;
-	short id;
+	unsigned char x, y;
+	unsigned short id;
+	unsigned char hp;
 };
 
 struct sc_packet_save_result
@@ -92,7 +142,7 @@ struct cs_packet_connect
 {
 	char size;
 	char type;
-	short id;
+	unsigned short id;
 };
 
 struct cs_packet_up {
@@ -119,9 +169,9 @@ struct cs_packet_pos_save
 {
 	char     size;
 	char     type;
-	short     id;
-	short    posX;
-	short    posY;
+	unsigned short     id;
+	unsigned char    posX;
+	unsigned char    posY;
 };
 
 
@@ -130,7 +180,7 @@ struct sd_packet_connect
 {
 	char size;
 	char type;
-	short id;
+	unsigned short id;
 };
 
 struct sd_packet_pos_save
@@ -138,17 +188,20 @@ struct sd_packet_pos_save
 	char size;
 	char type;
 	
-	short  id;
-	short pos_x;
-	short pos_y;
+	unsigned short  id;
+	unsigned char pos_x;
+	unsigned char pos_y;
+	unsigned char hp;
 };
 struct ds_packet_connect_result
 {
 	char size;
 	char type;
+	unsigned char pos_x;
+	unsigned char pos_y;
+	unsigned char hp;
 	bool access;
-	short pos_x;
-	short pos_y;
+	
 };
 
 struct ds_packet_save_result

@@ -150,7 +150,7 @@ bool MainDB::ConnectIDandGetPos(const std::wstring& wstr)
 				SQLSetConnectAttr(hdbc, SQL_LOGIN_TIMEOUT, (SQLPOINTER)5, 0);
 				
 				// Connect to data source 
-				retcode = SQLConnect(hdbc, (SQLWCHAR*)L"server_DB", SQL_NTS, (SQLWCHAR*)L"smj1005", SQL_NTS, (SQLWCHAR*)L"1234",SQL_NTS);
+				retcode = SQLConnect(hdbc, (SQLWCHAR*)L"2013180016_DB", SQL_NTS, (SQLWCHAR*)L"smj1005", SQL_NTS, (SQLWCHAR*)L"1234",SQL_NTS);
 
 				 // Allocate statement handle  
 				if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO)
@@ -169,6 +169,7 @@ bool MainDB::ConnectIDandGetPos(const std::wstring& wstr)
 						retcode = SQLBindCol(hstmt, 1, SQL_C_LONG, &userID, 100, &cbUser_ID);
 						retcode = SQLBindCol(hstmt, 2, SQL_C_LONG, &posX, 100, &cbPosX);
 						retcode = SQLBindCol(hstmt, 3, SQL_C_LONG, &posY, 100, &cbPosY);
+						retcode = SQLBindCol(hstmt, 4, SQL_C_LONG, &hp, 100, &cbHp);
 						//	retcode = SQLBindCol(hstmt, 2, SQL_C_CHAR, szName, NAME_LEN, &cbName);  
 				      //  retcode = SQLBindCol(hstmt, 3, SQL_C_LONG, &szLevel, 100 , &cbLevel);   
   
@@ -239,7 +240,7 @@ bool MainDB::SaveUserPos(const std::wstring& wstr, CLIENTS_INFO& client)
 				SQLSetConnectAttr(hdbc, SQL_LOGIN_TIMEOUT, (SQLPOINTER)5, 0);
 				
 				// Connect to data source 
-				retcode = SQLConnect(hdbc, (SQLWCHAR*)L"server_DB", SQL_NTS, (SQLWCHAR*)L"smj1005", SQL_NTS, (SQLWCHAR*)L"1234",SQL_NTS);
+				retcode = SQLConnect(hdbc, (SQLWCHAR*)L"2013180016_DB", SQL_NTS, (SQLWCHAR*)L"smj1005", SQL_NTS, (SQLWCHAR*)L"1234",SQL_NTS);
 
 				 // Allocate statement handle  
 				if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO)
@@ -253,7 +254,8 @@ bool MainDB::SaveUserPos(const std::wstring& wstr, CLIENTS_INFO& client)
 					wstring res = exec + wstr;
 					wstring w_posX = to_wstring(client.pos_x);
 					wstring w_posY = to_wstring(client.pos_y);
-					wstring sp = res + L",@PosX= " + w_posX + L",@PosY= " + w_posY;
+					wstring w_hp = to_wstring(client.hp);
+					wstring sp = res + L",@PosX= " + w_posX + L",@PosY= " + w_posY + L",@Hp= " + w_hp;
 					//retcode = SQLExecDirect(hstmt, (SQLWCHAR*)L"SELECT [ID] FROM dbo.ID ", SQL_NTS);
 					//retcode = SQLExecDirect(hstmt, (SQLWCHAR*)L"SELECT * FROM dbo.ID  WHERE ID = 32152", SQL_NTS);
 					

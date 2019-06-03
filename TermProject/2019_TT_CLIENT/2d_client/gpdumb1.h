@@ -68,6 +68,9 @@ typedef struct BOB_TYP
         int anim_state;     // an animation state variable, up to you
         int attr;           // attributes pertaining to the object (general)
         int x,y;          // position bitmap will be displayed at
+		int kind;			//item 종류
+		int hp;				//hp;
+		bool alive;			//생존 여부
         int xv,yv;        // velocity of object
 		float scale, rotation;
         int bpp;            // bits per pixel

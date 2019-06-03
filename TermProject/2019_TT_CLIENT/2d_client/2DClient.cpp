@@ -55,6 +55,7 @@ char buffer[80];                // used to print text
 
 								// demo globals
 BOB			player;				// 플레이어 Unit
+BOB         item[ITEM_COUNT];			// item;
 BOB			object[300];
 BOB			npc[NUM_NPC];      // NPC Unit
 BOB         skelaton[MAX_USER];     // the other player skelaton
@@ -69,6 +70,11 @@ BITMAP_IMAGE white_tile;
 #define UNIT_TEXTURE  0
 #define OBJECT_TEXTURE 1
 #define NPC_TEXTURE 2
+#define HEALTH_PORTION_TEXTURE 3 
+#define SKILL_PORTION_TEXTURE 4
+#define SPEED_PORTION_TEXTURE 5
+
+
 SOCKET g_mysocket;
 WSABUF	send_wsabuf;
 char 	send_buffer[BUF_SIZE];
@@ -190,16 +196,20 @@ void ProcessPacket(char *ptr)
 		if (id == g_myid) {
 			player.x = my_packet->x;
 			player.y = my_packet->y;
+			player.hp = my_packet->hp;
+			player.alive = true;
 			player.attr |= BOB_ATTR_VISIBLE;
 		}
 		else if (id < MAX_USER) {
 			skelaton[id].x = my_packet->x;
 			skelaton[id].y = my_packet->y;
+
 			skelaton[id].attr |= BOB_ATTR_VISIBLE;
 		}
 		else {
 			npc[id - NPC_ID_START].x = my_packet->x;
 			npc[id - NPC_ID_START].y = my_packet->y;
+			//npc[id - NPC_ID_START].hp = my_packet->hp;
 			npc[id - NPC_ID_START].attr |= BOB_ATTR_VISIBLE;
 		}
 		break;
@@ -240,10 +250,71 @@ void ProcessPacket(char *ptr)
 		}
 		break;
 	}
+	case SC_PUT_ITEM:
+	{
+		sc_packet_item_put * my_packet = reinterpret_cast<sc_packet_item_put*>(ptr);
+		int other_id = my_packet->id;
+		if(other_id >= NPC_ID_START + NUM_NPC && other_id < NUM_ITEM)
+		{
+			item[other_id - (NPC_ID_START + NUM_NPC)].x = my_packet->x;
+			item[other_id - (NPC_ID_START + NUM_NPC)].y = my_packet->y;
+			item[other_id - (NPC_ID_START + NUM_NPC)].kind = my_packet->kind;
+			item[other_id - (NPC_ID_START + NUM_NPC)].attr |= BOB_ATTR_VISIBLE;
+		}
+
+		break;
+	}
+
+	case SC_REMOVE_ITEM:
+	{
+		sc_packet_remove_item* my_packet = reinterpret_cast<sc_packet_remove_item*>(ptr);
+
+		int other_id = my_packet->id;
+		if(other_id >= NPC_ID_START + NUM_NPC && other_id < NUM_ITEM)
+		{
+			item[other_id - (NPC_ID_START + NUM_NPC)].attr &= ~BOB_ATTR_VISIBLE;
+		}
+
+		break;
+	}
 	case SC_POS_SAVE_RESULT:
 	{
 		cout << "정상적으로 위치가 저장되었습니다" << endl;
 		Sleep(1000);
+
+		break;
+	}
+	case SC_HP:
+	{
+		sc_packet_hp* my_packet = reinterpret_cast<sc_packet_hp*>(ptr);
+		int other_id = my_packet->id;
+
+		if(other_id == g_myid)
+		{
+			player.hp = my_packet->hp;
+		}
+		else if(other_id < MAX_USER)
+		{
+			skelaton[other_id].hp = my_packet->hp;
+		}
+		else
+		{
+			npc[other_id - NPC_ID_START].hp = my_packet->hp;
+		}
+
+		break;
+	}
+	case SC_DEAD:
+	{
+		sc_packet_dead* my_packet = reinterpret_cast<sc_packet_dead*>(ptr);
+		int other_id = my_packet->id;
+
+		if(other_id == g_myid)
+		{
+			player.alive = false;
+		}
+	
+
 
 		break;
 	}
@@ -592,6 +663,24 @@ int Game_Init(void *parms)
 		// Set_ID(&npc[i], i);
 	}
 
+	Load_Texture(L"Health portion.png", HEALTH_PORTION_TEXTURE, 64, 64);
+	Load_Texture(L"skill_portion.png", SKILL_PORTION_TEXTURE, 64, 64);
+	Load_Texture(L"speed_portion.png", SPEED_PORTION_TEXTURE, 64, 64);
+
+	for(int i=0;i<NUM_ITEM -(NPC_ID_START+NUM_NPC);++i)
+	{
+		if (!Create_BOB32(&item[i], 0,0,64,64,1,BOB_ATTR_SINGLE_FRAME))
+			return(0);
+
+		Load_Frame_BOB32(&item[i], (i % 3) + HEALTH_PORTION_TEXTURE, 0, 0, 0, BITMAP_EXTRACT_MODE_CELL);
+
+		Set_Animation_BOB32(&item[i], 0);
+		Set_Anim_Speed_BOB32(&item[i], 4);
+		Set_Vel_BOB32(&item[i], 0, 0);
+		Set_Pos_BOB32(&item[i], 0, 0);
+	
+	}
+	
 	
 
 	// set clipping rectangle to screen extents so mouse cursor
@@ -701,12 +790,22 @@ int Game_Main(void *parms)
 	for (int i = 0; i<MAX_USER; ++i) Draw_BOB32(&skelaton[i]);
 	for (int i = 0; i<NUM_NPC; ++i) Draw_BOB32(&npc[i]);
 	for (int i = 0; i < 300;++i) Draw_BOB32(&object[i]);
-
-	
+	for (int i = 0; i < NUM_ITEM - (NPC_ID_START + NUM_NPC); ++i)
+	{
+		Draw_BOB32(&item[i]);
+	}
 	// draw some text
 	wchar_t text[300];
 	wsprintf(text, L"MY POSITION (%3d, %3d)", player.x, player.y);
 	Draw_Text_D3D(text, 10, screen_height - 64, D3DCOLOR_ARGB(255, 255, 255, 255));
+	wsprintf(text, L"MY HP (%3d)", player.hp);
+	Draw_Text_D3D(text, 300, screen_height - 64, D3DCOLOR_ARGB(255, 255, 255, 255));
+	if(player.alive == false)
+	{
+		wsprintf(text, L"YOU DEAD !!");
+		Draw_Text_D3D(text, 300, 240, D3DCOLOR_ARGB(255, 0, 0, 255));
+	}
+
 
 	g_pSprite->End();
 	g_pd3dDevice->EndScene();
