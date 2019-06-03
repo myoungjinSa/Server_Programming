@@ -77,7 +77,8 @@ typedef struct BOB_TYP
 		int item_count;
 		int world_item_kind;
 		INVENTORY items[MAX_ITEMS];
-		int hp;				//hp;
+		int hp,mp;				//hp;
+		int speed;
 		bool alive;			//생존 여부
         int xv,yv;        // velocity of object
 		float scale, rotation;

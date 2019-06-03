@@ -37,10 +37,13 @@ constexpr char KEY_Z = 0x5A;
 #define SC_DENY_LOGIN			6
 #define SC_POS_SAVE_RESULT		7
 #define SC_HP					8
-#define SC_PUT_ITEM				9
-#define SC_ITEM_EAT				10
-#define SC_REMOVE_ITEM			11
-#define SC_DEAD					12
+#define SC_MP					9
+#define SC_SPEED				10
+#define SC_PUT_ITEM				11
+#define SC_ITEM_EAT				12
+#define SC_REMOVE_ITEM			13
+#define SC_DEAD					14
+
 
 
 #define SD_CONNECT				20
@@ -138,12 +141,28 @@ struct sc_packet_hp
 	short id;
 	unsigned char hp;
 };
+struct sc_packet_mp
+{
+	char size;
+	char type;
+	short id;
+	unsigned char mp;
+};
+
+struct sc_packet_speed
+{
+	char size;
+	char type;
+	short id;
+	char speed;
+};
 struct sc_packet_put_player {
 	char size;
 	char type;
 	unsigned char x, y;
 	unsigned short id;
 	unsigned char hp;
+	unsigned char mp;
 };
 
 struct sc_packet_save_result
@@ -227,6 +246,7 @@ struct sd_packet_pos_save
 	unsigned char pos_x;
 	unsigned char pos_y;
 	unsigned char hp;
+	unsigned char mp;
 };
 struct ds_packet_connect_result
 {
@@ -235,6 +255,7 @@ struct ds_packet_connect_result
 	unsigned char pos_x;
 	unsigned char pos_y;
 	unsigned char hp;
+	unsigned char mp;
 	bool access;
 	
 };

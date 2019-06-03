@@ -37,7 +37,8 @@ enum EVENT_TYPE {
 	EV_SEND,
 	EV_MOVE,
 	EV_ATTACK,
-	EV_HEAL
+	EV_HEAL,
+	EV_SPEED_DOWN
 };
 
 
@@ -65,6 +66,8 @@ struct SOCKETINFO
 
 	int x, y;
 	unsigned char hp;
+	unsigned char mp;
+	char speed;
 	unsigned char power;
 	char kind;
 	bool isEaten;
@@ -87,20 +90,23 @@ struct T_EVENT {
 	{	// apply operator< to operands
 		return (start_time > _Left.start_time);
 	}
+	
 };
 
+
 priority_queue <T_EVENT> timer_queue;
+
 queue<pair<SOCKETINFO*,QUERY_TYPE>> db_queue;
 
 
 
-SOCKETINFO clients[NPC_ID_START + NUM_NPC + 100];
+SOCKETINFO clients[NPC_ID_START + NUM_NPC + ITEM_COUNT];
 
 HANDLE g_iocp;
 
 void ConnectToLoginServer();
 void Destroy();
-void admit_client(int,short,short,unsigned char);
+void admit_client(int,short,short,unsigned char,unsigned char);
 void check_login();
 void SendPacketToLoginServer(queue<pair<SOCKETINFO*, QUERY_TYPE>>& q);
 void add_timer(EVENT_TYPE ev_type, int object,
@@ -108,6 +114,7 @@ void add_timer(EVENT_TYPE ev_type, int object,
 {
 	timer_queue.push(T_EVENT{ start_time, object, ev_type });
 }
+
 
 void calculate_dir(int id, int npc_id);
 void approach_npc(int id);
@@ -159,6 +166,7 @@ void initialize()
 	for (int i = 0; i < MAX_USER; ++i) {
 		clients[i].connected = false;
 		clients[i].viewlist.clear();
+		clients[i].speed = 1;
 	}
 	for (int i = NPC_ID_START; i < NPC_ID_START + NUM_NPC; ++i) {
 		clients[i].x = rand() % WORLD_WIDTH;
@@ -357,6 +365,8 @@ void send_put_player_packet(int to, int obj)
 	packet.x = clients[obj].x;
 	packet.y = clients[obj].y;
 	packet.hp = clients[obj].hp;
+	packet.mp = clients[obj].mp;
+
 	send_packet(to, reinterpret_cast<char *>(&packet));
 }
 
@@ -381,6 +391,27 @@ void send_hp_packet(int to)
 
 	send_packet(to, reinterpret_cast<char*>(&packet));
 }
+void send_mp_packet(int to)
+{
+	sc_packet_mp packet;
+	packet.id = to;
+	packet.size = sizeof(packet);
+	packet.type = SC_HP;
+	packet.mp = clients[to].mp;
+
+	send_packet(to, reinterpret_cast<char*>(&packet));
+}
+
+void send_speed_packet(int to)
+{
+	sc_packet_speed packet;
+	packet.id = to;
+	packet.size = sizeof(packet);
+	packet.type = SC_SPEED;
+	packet.speed = clients[to].speed;
+
+	send_packet(to, reinterpret_cast<char*>(&packet));
+}
 
 void send_save_result_packet(int to,bool isSave)
 {
@@ -397,33 +428,34 @@ void process_packet(int id, char * buf)
 	
 	short x = clients[id].x;
 	short y = clients[id].y;
+	int speed = clients[id].speed;
 	switch (buf[1]) {
 	case CS_UP:
 	{
 		cs_packet_up *packet = reinterpret_cast<cs_packet_up *>(buf);
-		--y;
+		y -=1 * speed ;
 		if (y < 0) y = 0;
 		break;
 	}
 	case CS_DOWN:
 	{
 		cs_packet_down *packet = reinterpret_cast<cs_packet_down *>(buf);
-		++y;
+		y +=1 * speed ;
 		if (y >= WORLD_HEIGHT) y = WORLD_HEIGHT - 1;
 		break;
 	}
 	case CS_LEFT:
 	{
 		cs_packet_left *packet = reinterpret_cast<cs_packet_left *>(buf);
-		if (0 < x) 
-			x--;
+		if (0 < x)
+			x -= 1 * speed;
 		break;
 	}
 	case CS_RIGHT:
 	{
 		cs_packet_right *packet = reinterpret_cast<cs_packet_right *>(buf);
 		if ((WORLD_WIDTH - 1) > x)
-			x++; 
+			x += 1 * speed;
 		break;
 	}
 	case CS_REQUEST_CONNECT:
@@ -474,6 +506,27 @@ void process_packet(int id, char * buf)
 		send_hp_packet(packet->id);
 
 
+		break;
+	}
+	case CS_USE_SKILL_ITEM:
+	{
+		cs_packet_use_item_skill* packet = reinterpret_cast<cs_packet_use_item_skill*>(buf);
+		
+		clients[packet->id].mp += 10;
+
+		send_mp_packet(packet->id);
+
+		break;
+	}
+	case CS_USE_SPEED_ITEM:
+	{
+		cs_packet_use_item_speed* packet = reinterpret_cast<cs_packet_use_item_speed*>(buf);
+
+		clients[packet->id].speed = 2;
+
+		//send_speed_packet(packet->id);
+	
+		add_timer(EV_SPEED_DOWN, packet->id, high_resolution_clock::now()+5s);
 		break;
 	}
 	case DS_CONNECT_RESULT:
@@ -716,6 +769,10 @@ void SendPacketToLoginServer(queue<pair<SOCKETINFO*,QUERY_TYPE>>& q)
 		g_mutex.lock();
 		sdps.hp = p.first->hp;
 		g_mutex.unlock();
+		g_mutex.lock();
+		sdps.mp = p.first->mp;
+		g_mutex.unlock();
+
 
 		
 		socketInfo->socket = g_loginSocket;
@@ -799,7 +856,8 @@ void RecvPacketToLoginServer(queue<pair<SOCKETINFO*,QUERY_TYPE>>& q)
 		dcr.pos_x = socketInfo->over.messageBuffer[2];
 		dcr.pos_y = socketInfo->over.messageBuffer[3];
 		dcr.hp = socketInfo->over.messageBuffer[4];
-		dcr.access = socketInfo->over.messageBuffer[5];
+		dcr.mp = socketInfo->over.messageBuffer[5];
+		dcr.access = socketInfo->over.messageBuffer[6];
 
 		
 		g_mutex.lock();
@@ -810,7 +868,7 @@ void RecvPacketToLoginServer(queue<pair<SOCKETINFO*,QUERY_TYPE>>& q)
 		if (p.first->access) {
 			g_mutex.unlock();
 			g_mutex.lock();
-			admit_client(p.first->id,dcr.pos_x,dcr.pos_y,dcr.hp);
+			admit_client(p.first->id,dcr.pos_x,dcr.pos_y,dcr.hp,dcr.mp);
 			g_mutex.unlock();
 			g_mutex.lock();
 		}
@@ -877,7 +935,7 @@ void check_login()
 	Destroy();
 }
 
-void admit_client(int new_id,short x,short y,unsigned char hp)
+void admit_client(int new_id,short x,short y,unsigned char hp,unsigned char mp)
 {
 
 
@@ -891,6 +949,7 @@ void admit_client(int new_id,short x,short y,unsigned char hp)
 		clients[new_id].x = x;
 		clients[new_id].y = y;
 		clients[new_id].hp = hp;
+		clients[new_id].mp = mp;
 		//g_mutex.unlock();
 		send_put_player_packet(new_id, new_id);
 		for (int i = 0; i < MAX_USER; ++i) {
@@ -991,7 +1050,7 @@ void do_accept()
 		clients[new_id].socket = clientSocket;
 		clients[new_id].over.dataBuffer.len = MAX_BUFFER;
 		clients[new_id].over.dataBuffer.buf =
-			clients[clientSocket].over.messageBuffer;
+		clients[clientSocket].over.messageBuffer;
 		clients[new_id].over.ev = EV_RECV;
 		clients[new_id].x = START_X;
 		clients[new_id].y = START_Y;
@@ -1244,6 +1303,12 @@ void process_event(T_EVENT &ev)
 		random_move_npc(ev.do_object);
 		add_timer(EV_MOVE, ev.do_object, high_resolution_clock::now() + 1s);
 
+		break;
+	}
+	case EV_SPEED_DOWN:
+	{
+		clients[ev.do_object].speed = 1;
+	//	send_speed_packet(ev.do_object);
 		break;
 	}
 	

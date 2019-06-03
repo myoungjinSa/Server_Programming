@@ -166,6 +166,46 @@ void SendUseHealItemPacket(const int id)
 	}
 
 }
+void SendUseSkillItemPacket(const int id)
+{
+	cs_packet_use_item_skill *packet = reinterpret_cast<cs_packet_use_item_skill*>(send_buffer);
+	ZeroMemory(packet, sizeof(cs_packet_use_item_skill));
+	packet->size = sizeof(cs_packet_use_item_skill);
+	send_wsabuf.len = sizeof(cs_packet_use_item_skill);
+
+	packet->type = CS_USE_SKILL_ITEM;
+	packet->id = id;
+
+	DWORD iobyte;
+	int ret = WSASend(g_mysocket, &send_wsabuf, 1, &iobyte, 0, NULL, NULL);
+	if(ret)
+	{
+		int error_code = WSAGetLastError();
+		printf("Error while sending packet[%d]", error_code);
+	}
+
+}
+
+void SendUseSpeedItemPacket(const int id)
+{
+	cs_packet_use_item_speed *packet = reinterpret_cast<cs_packet_use_item_speed*>(send_buffer);
+	ZeroMemory(packet, sizeof(cs_packet_use_item_speed));
+	packet->size = sizeof(cs_packet_use_item_speed);
+	send_wsabuf.len = sizeof(cs_packet_use_item_speed);
+
+	packet->type = CS_USE_SPEED_ITEM;
+	packet->id = id;
+
+	DWORD iobyte;
+	int ret = WSASend(g_mysocket, &send_wsabuf, 1, &iobyte, 0, NULL, NULL);
+	if(ret)
+	{
+		int error_code = WSAGetLastError();
+		printf("Error while sending packet[%d]", error_code);
+	}
+
+}
+
 
 void ProcessPacket(char *ptr)
 {
@@ -220,6 +260,7 @@ void ProcessPacket(char *ptr)
 			player.x = my_packet->x;
 			player.y = my_packet->y;
 			player.hp = my_packet->hp;
+			player.mp = my_packet->mp;
 			player.alive = true;
 			player.attr |= BOB_ATTR_VISIBLE;
 			g_gameStart = true;
@@ -344,6 +385,44 @@ void ProcessPacket(char *ptr)
 			npc[other_id - NPC_ID_START].hp = my_packet->hp;
 		}
 
+		break;
+	}
+	case SC_MP:
+	{
+		sc_packet_mp* my_packet = reinterpret_cast<sc_packet_mp*>(ptr);
+		int other_id = my_packet->id;
+
+		if(other_id == g_myid)
+		{
+			player.mp = my_packet->mp;
+		}
+		else if(other_id < MAX_USER)
+		{
+			skelaton[other_id].mp = my_packet->mp;
+		}
+		else
+		{
+			npc[other_id - NPC_ID_START].mp = my_packet->mp;
+		}
+		
+		break;
+	}
+	case SC_SPEED:
+	{
+		sc_packet_speed* my_packet = reinterpret_cast<sc_packet_speed*>(ptr);
+		int other_id = my_packet->id;
+
+		if(other_id == g_myid)
+		{
+			player.speed = my_packet->speed;
+
+		}
+		else if(other_id < MAX_USER)
+		{
+			skelaton[other_id].speed = my_packet->speed;
+		}
+
+			
 		break;
 	}
 	case SC_DEAD:
@@ -491,6 +570,55 @@ LRESULT CALLBACK WindowProc(HWND hwnd,
 					}
 				}
 			}
+			if(wparam == KEY_X)
+			{
+				bool bSkillPortion=false;
+				int k = 0;
+				for(int i=0;i<MAX_ITEMS;++i)
+				{
+					if(player.items[i].kind == SKILL_PORTION_TEXTURE && player.items[i].blank == false)
+					{
+						k = i;
+						bSkillPortion = true;
+					}
+				}
+				if(bSkillPortion)
+				{
+					SendUseSkillItemPacket(g_myid);
+					player.items[k].blank = true;
+					if (player.item_count > 0)
+					{
+						player.item_count -= 1;
+
+					}
+				}
+				
+			}
+			if(wparam == KEY_C)
+			{
+				bool bSpeedPortion = false;
+				int k = 0;
+
+				for(int i=0;i<MAX_ITEMS;++i)
+				{
+					if(player.items[i].kind == SPEED_PORTION_TEXTURE && player.items[i].blank == false)
+					{
+						k = i;
+						bSpeedPortion = true;
+					}
+
+				}
+				if(bSpeedPortion)
+				{
+					SendUseSpeedItemPacket(g_myid);
+					player.items[k].blank = true;
+					if (player.item_count > 0)
+					{
+						player.item_count -= 1;
+					}
+				}
+			}
+
 		}
 
 		
@@ -892,6 +1020,11 @@ int Game_Main(void *parms)
 	Draw_Text_D3D(text, 10, screen_height - 64, D3DCOLOR_ARGB(255, 255, 255, 255));
 	wsprintf(text, L"MY HP (%3d)", player.hp);
 	Draw_Text_D3D(text, 300, screen_height - 64, D3DCOLOR_ARGB(255, 255, 255, 255));
+	wsprintf(text, L"MY MP (%3d)", player.mp);
+	Draw_Text_D3D(text, 450, screen_height - 64, D3DCOLOR_ARGB(255, 255, 255, 255));
+	
+
+
 	if(player.alive == false && g_gameStart == true)
 	{
 		wsprintf(text, L"YOU DEAD !!");

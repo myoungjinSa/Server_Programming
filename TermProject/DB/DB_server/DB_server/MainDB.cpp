@@ -170,6 +170,7 @@ bool MainDB::ConnectIDandGetPos(const std::wstring& wstr)
 						retcode = SQLBindCol(hstmt, 2, SQL_C_LONG, &posX, 100, &cbPosX);
 						retcode = SQLBindCol(hstmt, 3, SQL_C_LONG, &posY, 100, &cbPosY);
 						retcode = SQLBindCol(hstmt, 4, SQL_C_LONG, &hp, 100, &cbHp);
+						retcode = SQLBindCol(hstmt, 5, SQL_C_LONG, &mp, 100, &cbMp);
 						//	retcode = SQLBindCol(hstmt, 2, SQL_C_CHAR, szName, NAME_LEN, &cbName);  
 				      //  retcode = SQLBindCol(hstmt, 3, SQL_C_LONG, &szLevel, 100 , &cbLevel);   
   
@@ -255,7 +256,8 @@ bool MainDB::SaveUserPos(const std::wstring& wstr, CLIENTS_INFO& client)
 					wstring w_posX = to_wstring(client.pos_x);
 					wstring w_posY = to_wstring(client.pos_y);
 					wstring w_hp = to_wstring(client.hp);
-					wstring sp = res + L",@PosX= " + w_posX + L",@PosY= " + w_posY + L",@Hp= " + w_hp;
+					wstring w_mp = to_wstring(client.mp);
+					wstring sp = res + L",@PosX= " + w_posX + L",@PosY= " + w_posY + L",@Hp= " + w_hp + L",@Mp= " + w_mp; 
 					//retcode = SQLExecDirect(hstmt, (SQLWCHAR*)L"SELECT [ID] FROM dbo.ID ", SQL_NTS);
 					//retcode = SQLExecDirect(hstmt, (SQLWCHAR*)L"SELECT * FROM dbo.ID  WHERE ID = 32152", SQL_NTS);
 					

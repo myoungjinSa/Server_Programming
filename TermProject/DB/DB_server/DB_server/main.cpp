@@ -238,6 +238,7 @@ void CALLBACK recv_callback(DWORD Error, DWORD dataBytes, LPWSAOVERLAPPED overla
 		dsr.pos_x = main_db.GetPosX();
 		dsr.pos_y = main_db.GetPosY();
 		dsr.hp = main_db.GetHp();
+		dsr.mp = main_db.GetMp();
 
 		clients[client_s].over.dataBuffer.len = dsr.size;
 		clients[client_s].over.dataBuffer.buf = (char*)&dsr;
@@ -255,7 +256,7 @@ void CALLBACK recv_callback(DWORD Error, DWORD dataBytes, LPWSAOVERLAPPED overla
 		short x = clients[client_s].sd_pos_save->pos_x;
 		short y = clients[client_s].sd_pos_save->pos_y;
 		unsigned char hp = clients[client_s].sd_pos_save->hp;
-		CLIENTS_INFO cl{ clients[client_s].sd_pos_save->pos_x,clients[client_s].sd_pos_save->pos_y ,clients[client_s].sd_pos_save->hp};
+		CLIENTS_INFO cl{ clients[client_s].sd_pos_save->pos_x,clients[client_s].sd_pos_save->pos_y ,clients[client_s].sd_pos_save->hp,clients[client_s].sd_pos_save->mp};
 		ret = main_db.SaveUserPos(wid, cl);
 
 		if (ret)
