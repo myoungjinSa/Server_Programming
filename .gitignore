@@ -4,6 +4,7 @@
 *\Release
 \Debug
 \Release
-
-
+*.log
+*.user
 *.obj
+*.tlog
