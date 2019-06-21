@@ -1,4 +1,5 @@
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
+#define _CRT_SECURE_NO_WARNINGS
 #include <iostream>
 #include <thread>
 #include <map>
@@ -8,6 +9,14 @@
 #include <chrono>
 #include <mutex>
 #include <unordered_map>
+
+extern "C"
+{
+#include "include\lua.h"
+#include "include\lauxlib.h"
+#include "include\lualib.h"
+}
+
 
 
 //#include "stdafx.h
@@ -24,7 +33,7 @@ using namespace chrono;
 #define MAX_BUFFER        1024
 
 #define VIEW_RADIUS  3
-
+#define ATTACK_RADIUS 1
 
 
 #define START_X		4
@@ -38,7 +47,10 @@ enum EVENT_TYPE {
 	EV_MOVE,
 	EV_ATTACK,
 	EV_HEAL,
-	EV_SPEED_DOWN
+	EV_SPEED_DOWN,
+	EV_PLAYER_MOVE,
+	EV_BOSS_ENCOUNTER,
+	EV_BOSS_MOVE
 };
 
 
@@ -75,8 +87,11 @@ struct SOCKETINFO
 	int user_id;
 	bool access;
 	unordered_set <int> viewlist;
+	lua_State* L;
+	mutex vlock;
 };
 mutex g_mutex;
+mutex g_timerMutex;
 unordered_set<int> clientID;
 SOCKET g_loginSocket;
 SOCKADDR_IN g_loginServerAddr;
@@ -99,8 +114,8 @@ priority_queue <T_EVENT> timer_queue;
 queue<pair<SOCKETINFO*,QUERY_TYPE>> db_queue;
 
 
-
-SOCKETINFO clients[NPC_ID_START + NUM_NPC + ITEM_COUNT];
+SOCKETINFO boss;
+SOCKETINFO clients[BOSS_COUNT+NPC_ID_START + NUM_NPC + ITEM_COUNT];
 
 HANDLE g_iocp;
 
@@ -112,14 +127,17 @@ void SendPacketToLoginServer(queue<pair<SOCKETINFO*, QUERY_TYPE>>& q);
 void add_timer(EVENT_TYPE ev_type, int object,
 	high_resolution_clock::time_point start_time)
 {
+	g_timerMutex.lock();
 	timer_queue.push(T_EVENT{ start_time, object, ev_type });
+	g_timerMutex.unlock();
 }
 
-
+void send_chat_packet(int to, int from, wchar_t *message);
 void calculate_dir(int id, int npc_id);
 void approach_npc(int id);
-
+bool is_near_object(int a, int b);
 void do_attack(int id, int npc_id);
+void send_hp_packet(int id);
 
 void err_quit(const char* msg)
 {
@@ -159,6 +177,68 @@ void err_display(const char* msg)
 	LocalFree(lpMsgBuf);
 }
 
+void error_display(const char *msg, int err_no)
+{
+	WCHAR *lpMsgBuf;
+	FormatMessage(
+		FORMAT_MESSAGE_ALLOCATE_BUFFER |
+		FORMAT_MESSAGE_FROM_SYSTEM,
+		NULL, err_no,
+		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+		(LPTSTR)&lpMsgBuf, 0, NULL);
+	cout << msg;
+	wcout << L"에러 " << lpMsgBuf << endl;
+	while (true);
+	LocalFree(lpMsgBuf);
+}
+void error_display(lua_State* L)
+{
+	cout << lua_tostring(L, -1);
+	lua_pop(L, 1);
+}
+
+int API_get_x(lua_State *L)
+{
+	int id = (int)lua_tonumber(L, -1);
+	int x = clients[id].x;
+	lua_pop(L, 2);
+	lua_pushnumber(L, x);
+	return 1;
+}
+int API_get_y(lua_State *L)
+{
+	int id = (int)lua_tonumber(L, -1);
+	int y = clients[id].y;
+	lua_pop(L, 2);
+	lua_pushnumber(L, y);
+	return 1;
+}
+
+int API_Send_Message(lua_State * L)
+{
+	int to = (int)lua_tonumber(L, -3);
+	int from = (int)lua_tonumber(L, -2);
+
+	char *message = (char*)lua_tostring(L, -1);
+	wchar_t wmess[MAX_STR_LENGTH];
+
+	cout << message << endl;
+	size_t wlen;
+	mbstowcs_s(&wlen, wmess, MAX_STR_LENGTH, message,_TRUNCATE);	//_TRUNCATE -> 문자열보다 길면 잘라라
+	
+	lua_pop(L, 4);
+
+	for(int i=0;i<MAX_USER;++i)
+	{
+		if (i == to) continue;
+		if (is_near_object(to, i) == true)
+			send_chat_packet(i, from, wmess);
+	}
+	send_chat_packet(to, from, wmess);
+
+	return 0;
+
+}
 
 void initialize()
 {
@@ -172,6 +252,7 @@ void initialize()
 		clients[i].x = rand() % WORLD_WIDTH;
 		clients[i].y = rand() % WORLD_HEIGHT;
 		clients[i].power = 1;
+		clients[i].hp = 1;
 		clients[i].last_move_time = high_resolution_clock::now();
 	}
 	for(int i=NUM_NPC + NPC_ID_START;i<NUM_ITEM;++i)
@@ -182,9 +263,37 @@ void initialize()
 		clients[i].isEaten = false;
 	}
 
+	clients[BOSS_ID].x = 0;
+	clients[BOSS_ID].y = 0;
+	clients[BOSS_ID].last_move_time = high_resolution_clock::now();
+	clients[BOSS_ID].power = 10;
+
 	for (int i = NPC_ID_START; i < NPC_ID_START + NUM_NPC; ++i) {
 		add_timer(EV_MOVE, i, high_resolution_clock::now() + 1s);
 	}
+
+	add_timer(EV_BOSS_MOVE, BOSS_ID, high_resolution_clock::now() + 1s);
+	clients[BOSS_ID].L = luaL_newstate();
+
+	luaL_openlibs(clients[BOSS_ID].L);
+
+	int error = luaL_loadfile(clients[BOSS_ID].L, "monster_ai.lua");
+	if (error)
+		error_display(clients[BOSS_ID].L);
+
+	error = lua_pcall(clients[BOSS_ID].L,0,0,0);
+
+	if (error)
+		error_display(clients[BOSS_ID].L);
+
+	lua_register(clients[BOSS_ID].L, "API_get_x", API_get_x);
+	lua_register(clients[BOSS_ID].L, "API_get_y", API_get_y);
+	lua_register(clients[BOSS_ID].L, "API_SendMessage", API_Send_Message);
+
+	lua_getglobal(clients[BOSS_ID].L, "set_uid");
+	lua_pushnumber(clients[BOSS_ID].L, BOSS_ID);
+	lua_pcall(clients[BOSS_ID].L, 1, 0, 0);
+
 
 }
 
@@ -225,21 +334,16 @@ bool is_near_object(int a, int b)
 		return false;
 	return true;
 }
-
-void error_display(const char *msg, int err_no)
+bool is_attack_region(int a,int b)
 {
-	WCHAR *lpMsgBuf;
-	FormatMessage(
-		FORMAT_MESSAGE_ALLOCATE_BUFFER |
-		FORMAT_MESSAGE_FROM_SYSTEM,
-		NULL, err_no,
-		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-		(LPTSTR)&lpMsgBuf, 0, NULL);
-	cout << msg;
-	wcout << L"에러 " << lpMsgBuf << endl;
-	while (true);
-	LocalFree(lpMsgBuf);
+	
+	if (ATTACK_RADIUS < abs(clients[a].x - clients[b].x)) 
+		return false;
+	if (ATTACK_RADIUS < abs(clients[a].y - clients[b].y))
+		return false;
+	return true;
 }
+
 
 void send_packet(int key, char *packet)
 {
@@ -262,6 +366,17 @@ void send_packet(int key, char *packet)
 		}
 	}
 }
+void send_chat_packet(int to,int from, wchar_t *message)
+{
+	sc_packet_chat packet;
+	packet.id = from;
+	packet.size = sizeof(packet);
+	packet.type = SC_CHAT;
+	wcsncpy(packet.message, message,MAX_STR_LENGTH);
+	send_packet(to, reinterpret_cast<char *>(&packet));
+}
+
+
 
 void send_deny_login_packet(char to)
 {
@@ -284,11 +399,21 @@ void disconnect(int id)
 {
 	for (int i = 0; i < MAX_USER; ++i) {
 		if (false == clients[i].connected) continue;
+		clients[i].vlock.lock();
 		if (0 != clients[i].viewlist.count(id))
+		{
+			clients[i].vlock.unlock();
 			send_remove_player_packet(i, id);
+		}
+		else
+		{
+			clients[i].vlock.unlock();
+		}
 	}
 	closesocket(clients[id].socket);
+	clients[id].vlock.lock();
 	clients[id].viewlist.clear();
+	clients[id].vlock.unlock();
 	clients[id].connected = false;
 }
 
@@ -366,6 +491,7 @@ void send_put_player_packet(int to, int obj)
 	packet.y = clients[obj].y;
 	packet.hp = clients[obj].hp;
 	packet.mp = clients[obj].mp;
+	packet.power = clients[obj].power;
 
 	send_packet(to, reinterpret_cast<char *>(&packet));
 }
@@ -413,12 +539,26 @@ void send_speed_packet(int to)
 	send_packet(to, reinterpret_cast<char*>(&packet));
 }
 
+
+
 void send_save_result_packet(int to,bool isSave)
 {
 	sc_packet_save_result packet;
 	packet.size = sizeof(packet);
 	packet.type = SC_POS_SAVE_RESULT;
 	packet.isSave = isSave;
+
+	send_packet(to, reinterpret_cast<char*>(&packet));
+}
+
+void send_attack_result(int to,int npc_id,bool isHit)
+{
+	sc_packet_attack_result packet;
+	packet.size = sizeof(packet);
+	packet.type = SC_ATTACK_RESULT;
+	packet.isHit = isHit;
+	packet.npc_id = npc_id;
+	packet.id = to;
 
 	send_packet(to, reinterpret_cast<char*>(&packet));
 }
@@ -529,6 +669,29 @@ void process_packet(int id, char * buf)
 		add_timer(EV_SPEED_DOWN, packet->id, high_resolution_clock::now()+5s);
 		break;
 	}
+	case CS_ATTACK:
+	{
+		cs_packet_attack* packet = reinterpret_cast<cs_packet_attack*>(buf);
+
+		bool isAttack{ false };
+		for (int i = 0; i < NUM_NPC; ++i) 
+		{
+			int npc_id = i + NPC_ID_START;
+			if (is_attack_region(id, npc_id) == true)
+			{
+				isAttack = true;
+				send_attack_result(id, npc_id, isAttack);
+				do_attack(npc_id, id);
+				if(clients[npc_id].hp <= 0)
+				{
+					send_remove_player_packet(id, npc_id);
+				}
+				//do_attack(npc_id, id);
+			}
+		
+		}
+		break;
+	}
 	case DS_CONNECT_RESULT:
 	{
 		
@@ -545,7 +708,10 @@ void process_packet(int id, char * buf)
 	{
 		return;
 	}
+		
+		clients[id].vlock.lock();
 		unordered_set <int> old_vl = clients[id].viewlist;
+		clients[id].vlock.unlock();
 		unordered_set <int> new_vl;
 		for (int i = 0; i < MAX_USER; ++i) 
 		{
@@ -564,12 +730,13 @@ void process_packet(int id, char * buf)
 			if( true == is_collision(id,npc_id))
 			{
 				do_attack(id, npc_id);
+				send_hp_packet(id);
 				//add_attack(EV_ATTACK,id, npc_id, high_resolution_clock::now() + 1s);
 			}
 		}
-		for (int i=0;i<ITEM_COUNT;++i)
+		for (int i=NUM_NPC + NPC_ID_START;i<NUM_ITEM;++i)
 		{
-			int item_id = i + NUM_NPC + NPC_ID_START;
+			int item_id = i ;
 			if(true == is_near_object(id,item_id) 
 				&& clients[item_id].isEaten == false)
 			{
@@ -577,6 +744,10 @@ void process_packet(int id, char * buf)
 			}
 
 		}
+
+		//////////////////////////////////////////////////////
+		//BOSS
+
 
 
 		for (auto cl : new_vl)
@@ -592,18 +763,23 @@ void process_packet(int id, char * buf)
 				if (false == is_player(cl)) continue;
 
 				//calculate_dir(id, cl);
+				clients[cl].vlock.lock();
 				if (0 != clients[cl].viewlist.count(id))
 				{
+					clients[cl].vlock.unlock();
 					send_pos_packet(cl, id);
 				}
 				else 
 				{
 					clients[cl].viewlist.insert(id);
+					clients[cl].vlock.unlock();
 					send_put_player_packet(cl, id);
 				}
 			}
 			else { // 새로 시야에 들어옴
+				clients[id].vlock.lock();
 				clients[id].viewlist.insert(cl);
+				clients[id].vlock.unlock();
 				if(cl >= NUM_NPC+NPC_ID_START)
 				{
 					send_put_item_packet(id, cl);
@@ -614,17 +790,24 @@ void process_packet(int id, char * buf)
 				}
 				
 				if (false == is_player(cl)) continue;
+				clients[cl].vlock.lock();
 				if (0 != clients[cl].viewlist.count(id))
+				{
+					clients[cl].vlock.unlock();
 					send_pos_packet(cl, id);
+				}
 				else {
 					clients[cl].viewlist.insert(id);
+					clients[cl].vlock.unlock();
 					send_put_player_packet(cl, id);
 				}
 			}
 		}
 		for (auto cl : old_vl) { // 시야에서 사라짐
 			if (0 != new_vl.count(cl)) continue;
+			clients[id].vlock.lock();
 			clients[id].viewlist.erase(cl);
+			clients[id].vlock.unlock();
 			if(cl >= NUM_NPC+ NPC_ID_START)
 			{
 				send_item_remove_packet(id, cl);
@@ -634,14 +817,21 @@ void process_packet(int id, char * buf)
 				send_remove_player_packet(id, cl);
 			}
 			if (false == is_player(cl)) continue;
+			clients[cl].vlock.lock();
 			if (0 != clients[cl].viewlist.count(id))
 			{
 				clients[cl].viewlist.erase(id);
+				clients[cl].vlock.unlock();
 				send_remove_player_packet(cl, id);
+			}
+			else
+			{
+				clients[cl].vlock.unlock();
 			}
 		}
 		send_pos_packet(id, id);
 	
+		
 }
 
 void do_recv(int id)
@@ -950,13 +1140,16 @@ void admit_client(int new_id,short x,short y,unsigned char hp,unsigned char mp)
 		clients[new_id].y = y;
 		clients[new_id].hp = hp;
 		clients[new_id].mp = mp;
+		clients[new_id].power = 1;
 		//g_mutex.unlock();
 		send_put_player_packet(new_id, new_id);
 		for (int i = 0; i < MAX_USER; ++i) {
 			if (false == clients[i].connected) continue;
 			if (i == new_id) continue;
 			if (true == is_near_object(i, new_id)) {
+				clients[i].vlock.lock();
 				clients[i].viewlist.insert(new_id);
+				clients[i].vlock.unlock();
 				send_put_player_packet(i, new_id);
 			}
 		}
@@ -965,7 +1158,9 @@ void admit_client(int new_id,short x,short y,unsigned char hp,unsigned char mp)
 			if (false == clients[i].connected) continue;
 			if (i == new_id) continue;
 			if (true == is_near_object(i, new_id)) {
+				clients[new_id].vlock.lock();
 				clients[new_id].viewlist.insert(i);
+				clients[new_id].vlock.unlock();
 				send_put_player_packet(new_id, i);
 			}
 		}
@@ -974,7 +1169,9 @@ void admit_client(int new_id,short x,short y,unsigned char hp,unsigned char mp)
 			int npc_id = i + NPC_ID_START;
 			if (true == is_near_object(npc_id, new_id))
 			{
+				clients[new_id].vlock.lock();
 				clients[new_id].viewlist.insert(npc_id);
+				clients[new_id].vlock.unlock();
 				send_put_player_packet(new_id, npc_id);
 			}
 		}
@@ -1054,7 +1251,9 @@ void do_accept()
 		clients[new_id].over.ev = EV_RECV;
 		clients[new_id].x = START_X;
 		clients[new_id].y = START_Y;
+		clients[new_id].vlock.lock();
 		clients[new_id].viewlist.clear();
+		clients[new_id].vlock.unlock();
 		clients[new_id].prev_size = 0;
 		ZeroMemory(&clients[new_id].over.overlapped, 
 			sizeof(WSAOVERLAPPED));
@@ -1151,16 +1350,23 @@ void approach_npc(int id)
 	{
 		if (0 != new_vl.count(user)) 
 		{
+			clients[user].vlock.lock();
 			if (clients[user].viewlist.count(id))
+			{
+				clients[user].vlock.unlock();
 				send_pos_packet(user, id);
+			}
 			else {
 				clients[user].viewlist.insert(id);
+				clients[user].vlock.unlock();
 				send_put_player_packet(user, id);
 			}
 		}
 		else {
+			clients[user].vlock.lock();
 			if (0 < clients[user].viewlist.count(id)) {
 				clients[user].viewlist.erase(id);
+				clients[user].vlock.unlock();
 				send_remove_player_packet(user, id);
 			}
 		}
@@ -1170,13 +1376,18 @@ void approach_npc(int id)
 	{
 		if (0 == old_vl.count(id)) 
 		{
+			clients[user].vlock.lock();
 			if (0 == clients[user].viewlist.count(id)) 
 			{
 				clients[user].viewlist.insert(id);
+				clients[user].vlock.unlock();
 				send_put_player_packet(user, id);
 			}
-			else
+			else 
+			{
+				clients[user].vlock.unlock();
 				send_pos_packet(user, id);
+			}
 		}
 	}
 
@@ -1196,6 +1407,7 @@ void random_move_npc(int id)
 		if( true == is_collision(i,id))
 		{
 			do_attack(i, id);
+			send_hp_packet(i);
 		}
 	}
 
@@ -1238,31 +1450,49 @@ void random_move_npc(int id)
 
 	for (auto user : old_vl) {
 		if (0 != new_vl.count(user)) {
+			clients[user].vlock.lock();
 			if (clients[user].viewlist.count(id))
+			{
+				clients[user].vlock.unlock();
 				send_pos_packet(user, id);
+			}
 			else {
 				clients[user].viewlist.insert(id);
+				clients[user].vlock.unlock();
 				send_put_player_packet(user, id);
 			}
 		}
 		else {
+			clients[user].vlock.lock();
 			if (0 < clients[user].viewlist.count(id)) {
 				clients[user].viewlist.erase(id);
+				clients[user].vlock.unlock();
 				send_remove_player_packet(user, id);
+			}
+			else
+			{
+				clients[user].vlock.unlock();
 			}
 		}
 	}
 	for (auto user : new_vl) {
 		if (0 == old_vl.count(id)) {
+			clients[user].vlock.lock();
 			if (0 == clients[user].viewlist.count(id)) {
 				clients[user].viewlist.insert(id);
+				clients[user].vlock.unlock();
 				send_put_player_packet(user, id);
 			}
 			else
+			{
+				clients[user].vlock.unlock();
 				send_pos_packet(user, id);
+
+			}
 		}
 	}
 }
+
 
 void heart_beat(int npc_id)
 {
@@ -1293,8 +1523,9 @@ void do_ai()
 void do_attack(int id, int npc_id)
 {
 	clients[id].hp -= clients[npc_id].power;
-	send_hp_packet(id);
+	//send_hp_packet(id);
 }
+
 void process_event(T_EVENT &ev)
 {
 	switch (ev.event_type) {
@@ -1311,7 +1542,11 @@ void process_event(T_EVENT &ev)
 	//	send_speed_packet(ev.do_object);
 		break;
 	}
-	
+	case EV_BOSS_MOVE:
+	{
+
+		break;
+	}
 	default :
 		cout << "Unknown Event!!!\n";
 		while (true);
@@ -1326,11 +1561,24 @@ void do_timer()
 	while (true) {
 		this_thread::sleep_for(10ms);
 		while (true) {
-			if (true == timer_queue.empty()) break;
+			g_timerMutex.lock();
+			if (true == timer_queue.empty())
+			{
+				g_timerMutex.unlock();
+				break;
+			}
+			else
+			{
+				g_timerMutex.unlock();
+			}
+			g_timerMutex.lock();
 			T_EVENT ev = timer_queue.top();
+			g_timerMutex.unlock();
 			if (ev.start_time > high_resolution_clock::now()) 
 				break;
+			g_timerMutex.lock();
 			timer_queue.pop();
+			g_timerMutex.unlock();
 			process_event(ev);
 			count++;
 

@@ -205,7 +205,25 @@ void SendUseSpeedItemPacket(const int id)
 	}
 
 }
+void SendAttackPacket(int id)
+{
+	cs_packet_attack *packet = reinterpret_cast<cs_packet_attack*>(send_buffer);
+	ZeroMemory(packet, sizeof(cs_packet_attack));
+	packet->size = sizeof(cs_packet_attack);
+	send_wsabuf.len = sizeof(cs_packet_attack);
 
+	packet->type = CS_ATTACK;
+	packet->id = id;
+	packet->power = player.power;
+
+	DWORD iobyte;
+	int ret = WSASend(g_mysocket, &send_wsabuf, 1, &iobyte, 0, NULL, NULL);
+	if(ret)
+	{
+		int error_code = WSAGetLastError();
+		printf("Error while sending packet[%d]", error_code);
+	}
+}
 
 void ProcessPacket(char *ptr)
 {
@@ -261,6 +279,7 @@ void ProcessPacket(char *ptr)
 			player.y = my_packet->y;
 			player.hp = my_packet->hp;
 			player.mp = my_packet->mp;
+			player.power = my_packet->power;
 			player.alive = true;
 			player.attr |= BOB_ATTR_VISIBLE;
 			g_gameStart = true;
@@ -274,6 +293,9 @@ void ProcessPacket(char *ptr)
 		else {
 			npc[id - NPC_ID_START].x = my_packet->x;
 			npc[id - NPC_ID_START].y = my_packet->y;
+			npc[id - NPC_ID_START].hp = my_packet->hp;
+			npc[id - NPC_ID_START].mp = my_packet->mp;
+			npc[id - NPC_ID_START].power = my_packet->power;
 			//npc[id - NPC_ID_START].hp = my_packet->hp;
 			npc[id - NPC_ID_START].attr |= BOB_ATTR_VISIBLE;
 		}
@@ -436,6 +458,27 @@ void ProcessPacket(char *ptr)
 		}
 	
 
+
+		break;
+	}
+	case SC_ATTACK_RESULT:
+	{
+		sc_packet_attack_result* my_packet = reinterpret_cast<sc_packet_attack_result*>(ptr);
+
+		int other_id = my_packet->id;
+
+		if(other_id == g_myid)
+		{
+			if(my_packet->isHit == true)
+			{
+				cout << my_packet->npc_id << "번 째 NPC에게 데미지" << player.power << "를 주었습니다.\n";
+			}
+			else
+			{
+				cout << "공격이 빗나갔습니다.\n";
+			}
+			
+		}
 
 		break;
 	}
@@ -617,6 +660,10 @@ LRESULT CALLBACK WindowProc(HWND hwnd,
 						player.item_count -= 1;
 					}
 				}
+			}
+			if(wparam == KEY_A)
+			{
+				SendAttackPacket(g_myid);
 			}
 
 		}

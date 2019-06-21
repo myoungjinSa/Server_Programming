@@ -1,18 +1,22 @@
 #pragma once
 
-constexpr int MAX_USER = 10;
-
-constexpr int NPC_ID_START = 100;
-constexpr int NUM_NPC = 20000;
+constexpr int MAX_USER = 1000;
+constexpr int MAX_STR_LENGTH = 50;
+constexpr int NPC_ID_START = MAX_USER;
+constexpr int NUM_NPC = 200000;
 constexpr int ITEM_COUNT = 200;
 constexpr int NUM_ITEM = NPC_ID_START +NUM_NPC + ITEM_COUNT;
+constexpr int BOSS_COUNT = 1;
+constexpr int BOSS_ID = NUM_ITEM + BOSS_COUNT;
 
+constexpr char KEY_A = 0x41;
+constexpr char KEY_B = 0x42;
 constexpr char KEY_C = 0x43;
 constexpr char KEY_X = 0x58;
 constexpr char KEY_Z = 0x5A;
 
-#define WORLD_WIDTH		255
-#define WORLD_HEIGHT	255
+#define WORLD_WIDTH		800
+#define WORLD_HEIGHT	800
 
 #define SERVER_PORT		3500
 #define DB_PORT			3501
@@ -26,7 +30,7 @@ constexpr char KEY_Z = 0x5A;
 #define CS_USE_HEAL_ITEM		7
 #define CS_USE_SKILL_ITEM		8
 #define CS_USE_SPEED_ITEM		9
-
+#define CS_ATTACK				10
 
 
 #define SC_LOGIN_OK				1
@@ -43,7 +47,8 @@ constexpr char KEY_Z = 0x5A;
 #define SC_ITEM_EAT				12
 #define SC_REMOVE_ITEM			13
 #define SC_DEAD					14
-
+#define SC_CHAT					15
+#define SC_ATTACK_RESULT		16
 
 
 #define SD_CONNECT				20
@@ -65,7 +70,14 @@ struct sc_packet_pos {
 	char size;
 	char type;
 	unsigned char x, y;
-	short id;
+	unsigned int id;
+};
+struct sc_packet_chat
+{
+	char size;
+	char type;
+	int	 id;
+	wchar_t message[MAX_STR_LENGTH];
 };
 
 struct sc_packet_item_put
@@ -76,7 +88,7 @@ struct sc_packet_item_put
 	char padding;
 	unsigned short x;
 	unsigned short y;
-	unsigned short id;
+	unsigned int id;
 
 };
 
@@ -88,7 +100,7 @@ struct sc_packet_item_pos
 	char padding;
 	unsigned short x;
 	unsigned short y;
-	unsigned short id;
+	unsigned int id;
 };
 
 struct sc_packet_item_eat
@@ -97,25 +109,31 @@ struct sc_packet_item_eat
 	char type;
 	char kind;
 	char padding;
-	unsigned short id;
+	unsigned int id;
 };
 struct sc_packet_remove_item
 {
 	char size;
 	char type;
-	unsigned short id;
+	char padding1;
+	char padding2;
+	unsigned int id;
 };
 struct sc_packet_remove_player {
 	char size;
 	char type;
-	unsigned short id;
+	char padding1;
+	char padding2;
+	unsigned int id;
 };
 
 struct sc_packet_dead
 {
 	char size;
 	char type;
-	unsigned short id;
+	char padding1;
+	char padding2;
+	unsigned int id;
 };
 struct sc_packet_request_id
 {
@@ -138,31 +156,36 @@ struct sc_packet_hp
 {
 	char size;
 	char type;
-	short id;
 	unsigned char hp;
+	char padding;
+	unsigned int id;
+
 };
 struct sc_packet_mp
 {
 	char size;
 	char type;
-	short id;
 	unsigned char mp;
+	char padding;
+	unsigned int id;
 };
 
 struct sc_packet_speed
 {
 	char size;
 	char type;
-	short id;
 	char speed;
+	char padding;
+	unsigned int id;
 };
 struct sc_packet_put_player {
 	char size;
 	char type;
 	unsigned char x, y;
-	unsigned short id;
+	unsigned int id;
 	unsigned char hp;
 	unsigned char mp;
+	unsigned char power;
 };
 
 struct sc_packet_save_result
@@ -170,6 +193,17 @@ struct sc_packet_save_result
 	char size;
 	char type;
 	bool isSave;
+};
+
+struct sc_packet_attack_result
+{
+	char size;
+	char type;
+	unsigned short hp;
+	unsigned int id;
+	unsigned int npc_id;
+	bool isHit;
+
 };
 
 struct cs_packet_connect
@@ -198,6 +232,15 @@ struct cs_packet_right {
 	char	size;
 	char	type;
 };
+
+struct cs_packet_attack
+{
+	char size;
+	char type;
+	unsigned short id;
+	int power;
+};
+
 
 struct cs_packet_pos_save
 {

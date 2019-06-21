@@ -79,6 +79,7 @@ typedef struct BOB_TYP
 		INVENTORY items[MAX_ITEMS];
 		int hp,mp;				//hp;
 		int speed;
+		int power;
 		bool alive;			//생존 여부
         int xv,yv;        // velocity of object
 		float scale, rotation;

@@ -1,0 +1,56 @@
+*BOOST 
+
+표준     -  STL 
+
+비표준  - BOOST => 표준이 되기 전에 테스트해보는 라이브러리
+
+
+*reflection : C++11 = C++98 + BOOST
+
+ 
+*boost 는 template으로 구현되어있어서 라이브러리가 따로 필요 없다. header만 포함하면 됨
+*asio는 라이브러리도 필요하다. 
+
+
+
+*asio는 c++20의 표준으로 채택됨
+
+*Windows 의 IOCP는 C스타일이다. 
+
+*ASIO 는 C++에 딱 맞게 되어있다.
+
+*class boost::asio::io_service -> iocp와 마찬가지로 하나의 객체로 서버 구현
+
+*io_service::run() == GetQueuedCompletionStatus() 함수 
+WorkerThread에서는 io_service::run() 을 호출한다.
+
+
+*void handler 함수마다 소켓이 하나 할당
+
+void handler(boost::system::error_code& error,size_t bytes_transferred) -> socket이랑 데이터가 도착한
+버퍼는 없다 -> 그 이유는 각 handler마다 소켓이 하나 할당 되서 전달해 줄 필요가 없기 때문
+
+
+
+*async_read 와 async_read_some 의 차이
+
+-async_read 는 읽어야 할 byte 수를 지정해 주어야 한다. ->100바이트로 지정해주면 100바이트가 도착하면 callback을 함
+
+-async_read_some은 1바이트만 도착해도 callback을 호출
+
+
+-async_read는 strand객체가 필요함
+
+-strand 객체 : 한 소켓에대한 콜백이 동시에 호출되는것을 막기위한 객체
+ 
+
+-게임 서버에서는 async_read_some 을 사용해야한다.
+
+
+-WSAAccept  - async_accept
+-WSARecv     - async_read_some
+-WSASend     - async_write_some
+-GQCS 	      - callback()
+
+
+
